@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, TextInput, Alert, Switch } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/Colors';
@@ -15,6 +15,10 @@ export default function PdfReaderScreen() {
   const [consumoExtraido, setConsumoExtraido] = useState<string>('');
   const [periodoExtraido, setPeriodoExtraido] = useState<string>('');
   const [mostrarResultados, setMostrarResultados] = useState(false);
+  
+  // NUEVO: Estados para el modo de diagnóstico
+  const [textoCrudo, setTextoCrudo] = useState<string>('');
+  const [verDiagnostico, setVerDiagnostico] = useState(false);
 
   const pickDocument = async () => {
     try {
@@ -27,9 +31,8 @@ export default function PdfReaderScreen() {
 
       const file = result.assets[0];
       
-      // Validación preventiva de peso (1 MB = 1048576 bytes)
       if (file.size && file.size > 1048576) {
-        Alert.alert('Archivo muy pesado', 'El PDF supera el límite de 1MB de la versión gratuita. Intenta con un archivo más ligero.');
+        Alert.alert('Archivo muy pesado', 'El PDF supera el límite de 1MB. Intenta con uno más ligero.');
         return;
       }
 
@@ -46,6 +49,7 @@ export default function PdfReaderScreen() {
     setMostrarResultados(false);
     setConsumoExtraido('');
     setPeriodoExtraido('');
+    setTextoCrudo('');
 
     try {
       const formData = new FormData();
@@ -69,23 +73,18 @@ export default function PdfReaderScreen() {
 
       const datos = await respuesta.json();
 
-      // Manejo de errores detallado
       if (datos.IsErroredOnProcessing) {
-        const errorMsg = datos.ErrorMessage[0];
-        if (errorMsg.includes('File size limit')) {
-           throw new Error('El PDF supera el límite de peso del servidor (1MB).');
-        } else if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
-           throw new Error('El recibo de CFE está encriptado o protegido.');
-        } else {
-           throw new Error(errorMsg);
-        }
+        throw new Error(datos.ErrorMessage[0]);
       }
 
       if (!datos.ParsedResults || datos.ParsedResults.length === 0) {
         throw new Error('No se detectó texto en el documento.');
       }
 
+      // Guardamos TODO el texto tal y como lo vio la IA
       const textoCompleto = datos.ParsedResults.map((p: any) => p.ParsedText).join('\n');
+      setTextoCrudo(textoCompleto);
+      
       analizarTextoCFE(textoCompleto);
 
     } catch (error: any) {
@@ -96,27 +95,28 @@ export default function PdfReaderScreen() {
     }
   };
 
-  // --- MOTOR DE ANÁLISIS CFE OPTIMIZADO ---
   const analizarTextoCFE = (textoRaw: string) => {
     const txt = textoRaw.toUpperCase();
     let consumo = '';
 
-    // 1. Lógica CFE: Buscar la línea exacta que dice "ENERGIA (kWh)"
-    // Capturamos toda la fila de números que le sigue.
+    // INTENTO 1: Formato en fila (Lectura actual - anterior - multiplicador - consumo)
     const lineaEnergiaMatch = txt.match(/ENERG[IÍ]A\s*\(KWH\)(.*)/);
-    
     if (lineaEnergiaMatch && lineaEnergiaMatch[1]) {
-      // Extraemos solo los bloques numéricos de esa línea
       const numerosFila = lineaEnergiaMatch[1].match(/\d+/g);
-      
       if (numerosFila && numerosFila.length > 0) {
-        // En CFE, el último número de esa fila es el "Consumo" final.
-        // Ej: LecturaActual(1000) LecturaAnterior(800) Multiplicador(1) Consumo(200)
         consumo = numerosFila[numerosFila.length - 1]; 
       }
     }
 
-    // 2. Fallback: Si no encontró la tabla, busca la palabra KWH junto a un número
+    // INTENTO 2: Buscar la palabra "Consumo" seguida de números en multilínea
+    if (!consumo) {
+      const consumoMatch = txt.match(/CONSUMO.*?\n.*?(\d{2,5})/m);
+      if (consumoMatch && consumoMatch[1]) {
+        consumo = consumoMatch[1];
+      }
+    }
+
+    // INTENTO 3: Búsqueda cruda del kWh
     if (!consumo) {
       const fallbackMatch = txt.match(/([\d,]+)\s*KWH/);
       if (fallbackMatch && fallbackMatch[1]) {
@@ -124,7 +124,6 @@ export default function PdfReaderScreen() {
       }
     }
 
-    // El periodo ya funcionaba perfectamente
     const periodoMatch = txt.match(/\d{2}\s+[A-Z]{3}\s+\d{2,4}\s*[-A]\s*\d{2}\s+[A-Z]{3}\s+\d{2,4}/);
 
     setConsumoExtraido(consumo !== '' ? consumo : 'No detectado');
@@ -182,10 +181,29 @@ export default function PdfReaderScreen() {
             keyboardType="numeric"
             onChangeText={setConsumoExtraido}
           />
+
+          {/* NUEVA SECCIÓN DE DIAGNÓSTICO PARA EL USUARIO */}
+          <View style={{ borderTopWidth: 1, borderTopColor: theme.border, marginTop: 15, paddingTop: 15 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 14, fontWeight: 'bold' }}>Modo Diagnóstico (Ver texto leído)</Text>
+              <Switch 
+                value={verDiagnostico} 
+                onValueChange={setVerDiagnostico} 
+                trackColor={{ false: theme.border, true: theme.primary }}
+              />
+            </View>
+            
+            {verDiagnostico && (
+              <View style={{ backgroundColor: '#000', padding: 10, borderRadius: 8, maxHeight: 200 }}>
+                <ScrollView nestedScrollEnabled={true}>
+                  <Text style={{ color: '#00FF00', fontFamily: 'monospace', fontSize: 10 }}>
+                    {textoCrudo}
+                  </Text>
+                </ScrollView>
+              </View>
+            )}
+          </View>
           
-          <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center', fontStyle: 'italic' }}>
-            *Puedes corregir los datos manualmente si la IA omitió algún número.
-          </Text>
         </View>
       )}
 
