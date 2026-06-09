@@ -14,7 +14,8 @@ export default function PdfReaderScreen() {
   
   const [consumoExtraido, setConsumoExtraido] = useState<string>('');
   const [periodoExtraido, setPeriodoExtraido] = useState<string>('');
-  const [tipoConsumo, setTipoConsumo] = useState<string>(''); // Para avisar si es Promedio o de 1 solo periodo
+  const [tipoConsumo, setTipoConsumo] = useState<string>(''); 
+  const [historialDetalle, setHistorialDetalle] = useState<number[]>([]); // NUEVO: Para mostrar los números usados
   const [mostrarResultados, setMostrarResultados] = useState(false);
   
   const [textoCrudo, setTextoCrudo] = useState<string>('');
@@ -50,6 +51,7 @@ export default function PdfReaderScreen() {
     setConsumoExtraido('');
     setPeriodoExtraido('');
     setTipoConsumo('');
+    setHistorialDetalle([]);
     setTextoCrudo('');
 
     try {
@@ -82,7 +84,6 @@ export default function PdfReaderScreen() {
         throw new Error('No se detectó texto en el documento.');
       }
 
-      // Guardamos el texto original respetando mayúsculas y minúsculas para el historial
       const textoCompleto = datos.ParsedResults.map((p: any) => p.ParsedText).join('\n');
       setTextoCrudo(textoCompleto);
       
@@ -105,48 +106,44 @@ export default function PdfReaderScreen() {
     let consumo = '';
     let tipo = '';
 
-    // INTENTO 1 (LA FORMA PROFESIONAL): Buscar la tabla de "Consumo Histórico"
-    // Buscamos la palabra "kWh" y atrapamos todos los números que estén debajo de ella
-    const historialRegex = /kWh\s*\n((?:\d+\s*\n)+)/i; // Usamos textoRaw (sin mayúsculas forzadas) para no romper el formato
+    const historialRegex = /kWh\s*\n((?:\d+\s*\n)+)/i; 
     const matchHistorial = textoRaw.match(historialRegex);
     
     if (matchHistorial && matchHistorial[1]) {
-      // Separamos los números, ignorando letras
       const consumosHistorial = matchHistorial[1].trim().split(/\s+/).map(n => parseInt(n, 10)).filter(n => !isNaN(n));
       
       if (consumosHistorial.length > 0) {
-        // Tomamos máximo 6 bimestres (1 año de consumo)
+        // Tomamos los más recientes (máximo 6 para 1 año)
         const ultimos6 = consumosHistorial.slice(0, 6);
+        setHistorialDetalle(ultimos6); // Guardamos la lista para mostrarla en pantalla
+        
         const sumaAnual = ultimos6.reduce((acc, val) => acc + val, 0);
         const promedioBimestral = Math.round(sumaAnual / ultimos6.length);
         
         consumo = promedioBimestral.toString();
-        tipo = `Promedio de 1 año (${ultimos6.length} periodos)`;
+        tipo = `Promedio Anual (${ultimos6.length} bimestres)`;
       }
     }
 
-    // INTENTO 2: Si no hay historial, sacamos el del mes actual (Respaldo)
     if (!consumo) {
       const matchVertical = txtMayus.match(/TOTAL\s+PERIODO\s+([\d,]+)/);
       if (matchVertical && matchVertical[1]) {
         consumo = matchVertical[1].replace(/,/g, '');
-        tipo = 'Solo periodo actual (No recomendado)';
+        tipo = 'Solo periodo actual (Sin historial)';
       }
     }
 
-    // INTENTO 3: Respaldo horizontal
     if (!consumo) {
       const lineaEnergiaMatch = txtMayus.match(/ENERG[IÍ]A\s*\(KWH\)(.*)/);
       if (lineaEnergiaMatch && lineaEnergiaMatch[1]) {
         const numerosFila = lineaEnergiaMatch[1].match(/\d+/g);
         if (numerosFila && numerosFila.length > 0) {
           consumo = numerosFila[numerosFila.length - 1]; 
-          tipo = 'Solo periodo actual (No recomendado)';
+          tipo = 'Solo periodo actual (Sin historial)';
         }
       }
     }
 
-    // Extraer periodo actual (para referencia del usuario)
     const periodoMatch = txtMayus.match(/\d{2}\s+[A-Z]{3}\s+\d{2,4}\s*[-A]\s*\d{2}\s+[A-Z]{3}\s+\d{2,4}/);
 
     setConsumoExtraido(consumo !== '' ? consumo : 'No detectado');
@@ -196,18 +193,34 @@ export default function PdfReaderScreen() {
           />
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Consumo a ingresar (kWh):</Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Consumo Bimestral (kWh):</Text>
             <Text style={{ color: theme.primary, fontSize: 12, fontWeight: 'bold' }}>{tipoConsumo}</Text>
           </View>
           
           <TextInput 
-            style={{ backgroundColor: theme.inputBg, color: theme.text, borderRadius: 8, padding: 12, fontSize: 18, fontWeight: 'bold', marginBottom: 15, borderWidth: 1, borderColor: theme.primary }}
+            style={{ backgroundColor: theme.inputBg, color: theme.text, borderRadius: 8, padding: 12, fontSize: 22, fontWeight: 'bold', marginBottom: 10, borderWidth: 1, borderColor: theme.primary, textAlign: 'center' }}
             value={consumoExtraido}
             keyboardType="numeric"
             onChangeText={setConsumoExtraido}
           />
 
-          <View style={{ borderTopWidth: 1, borderTopColor: theme.border, marginTop: 15, paddingTop: 15 }}>
+          {/* NUEVA SECCIÓN: Muestra los valores exactos que se sumaron */}
+          {historialDetalle.length > 0 && (
+            <View style={{ backgroundColor: theme.inputBg, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.border, marginBottom: 15 }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 8, textAlign: 'center' }}>
+                Valores usados para el promedio (1 Año):
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 }}>
+                {historialDetalle.map((val, index) => (
+                  <Text key={index} style={{ color: theme.text, fontSize: 12, backgroundColor: theme.background, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, borderWidth: 1, borderColor: theme.border }}>
+                    {val}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={{ borderTopWidth: 1, borderTopColor: theme.border, marginTop: 5, paddingTop: 15 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={{ color: theme.textSecondary, fontSize: 14, fontWeight: 'bold' }}>Modo Diagnóstico (Ver texto leído)</Text>
               <Switch 
