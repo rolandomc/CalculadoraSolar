@@ -35,9 +35,14 @@ function DrawerNavigator() {
           drawerIcon: ({ color }) => <Ionicons name="hammer-outline" size={22} color={color} />
         }} 
       />
+      {/* Ocultamos estas pantallas del menú lateral, pero existen en la app */}
       <Drawer.Screen 
         name="paywall" 
-        options={{ drawerItemStyle: { display: 'none' } }} 
+        options={{ drawerItemStyle: { display: 'none' }, title: 'Premium' }} 
+      />
+      <Drawer.Screen 
+        name="pdf-reader" 
+        options={{ drawerItemStyle: { display: 'none' }, title: 'Lector de CFE' }} 
       />
     </Drawer>
   );
