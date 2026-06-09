@@ -16,7 +16,6 @@ export default function PdfReaderScreen() {
   const [periodoExtraido, setPeriodoExtraido] = useState<string>('');
   const [mostrarResultados, setMostrarResultados] = useState(false);
   
-  // NUEVO: Estados para el modo de diagnóstico
   const [textoCrudo, setTextoCrudo] = useState<string>('');
   const [verDiagnostico, setVerDiagnostico] = useState(false);
 
@@ -85,6 +84,14 @@ export default function PdfReaderScreen() {
       const textoCompleto = datos.ParsedResults.map((p: any) => p.ParsedText).join('\n');
       setTextoCrudo(textoCompleto);
       
+      // =================================================================
+      // NUEVO: IMPRIMIR EN LA TERMINAL PARA COPIAR FÁCILMENTE
+      // =================================================================
+      console.log("\n\n========== INICIO DEL TEXTO DEL RECIBO CFE ==========\n");
+      console.log(textoCompleto);
+      console.log("\n=========== FIN DEL TEXTO DEL RECIBO CFE ============\n\n");
+      // =================================================================
+
       analizarTextoCFE(textoCompleto);
 
     } catch (error: any) {
@@ -99,7 +106,6 @@ export default function PdfReaderScreen() {
     const txt = textoRaw.toUpperCase();
     let consumo = '';
 
-    // INTENTO 1: Formato en fila (Lectura actual - anterior - multiplicador - consumo)
     const lineaEnergiaMatch = txt.match(/ENERG[IÍ]A\s*\(KWH\)(.*)/);
     if (lineaEnergiaMatch && lineaEnergiaMatch[1]) {
       const numerosFila = lineaEnergiaMatch[1].match(/\d+/g);
@@ -108,7 +114,6 @@ export default function PdfReaderScreen() {
       }
     }
 
-    // INTENTO 2: Buscar la palabra "Consumo" seguida de números en multilínea
     if (!consumo) {
       const consumoMatch = txt.match(/CONSUMO.*?\n.*?(\d{2,5})/m);
       if (consumoMatch && consumoMatch[1]) {
@@ -116,7 +121,6 @@ export default function PdfReaderScreen() {
       }
     }
 
-    // INTENTO 3: Búsqueda cruda del kWh
     if (!consumo) {
       const fallbackMatch = txt.match(/([\d,]+)\s*KWH/);
       if (fallbackMatch && fallbackMatch[1]) {
@@ -182,7 +186,6 @@ export default function PdfReaderScreen() {
             onChangeText={setConsumoExtraido}
           />
 
-          {/* NUEVA SECCIÓN DE DIAGNÓSTICO PARA EL USUARIO */}
           <View style={{ borderTopWidth: 1, borderTopColor: theme.border, marginTop: 15, paddingTop: 15 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={{ color: theme.textSecondary, fontSize: 14, fontWeight: 'bold' }}>Modo Diagnóstico (Ver texto leído)</Text>
@@ -197,7 +200,7 @@ export default function PdfReaderScreen() {
               <View style={{ backgroundColor: '#000', padding: 10, borderRadius: 8, maxHeight: 200 }}>
                 <ScrollView nestedScrollEnabled={true}>
                   <Text style={{ color: '#00FF00', fontFamily: 'monospace', fontSize: 10 }}>
-                    {textoCrudo}
+                    Revisa la terminal de VS Code para copiar el texto completo fácilmente.
                   </Text>
                 </ScrollView>
               </View>
