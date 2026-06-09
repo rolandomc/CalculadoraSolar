@@ -6,7 +6,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 interface CotizacionComponentes {
   potenciaKWp: number;
@@ -222,8 +222,7 @@ export default function CotizadorScreen() {
       `;
 
       const fileName = `Cotizacion_${cotizacion.potenciaKWp}kWp_${Date.now()}.html`;
-      const dir = (FileSystem as any).temporaryDirectory || (FileSystem as any).cacheDirectory;
-      const filePath = `${dir}${fileName}`;
+      const filePath = `${FileSystem.documentDirectory}${fileName}`;
 
       await FileSystem.writeAsStringAsync(filePath, htmlContent);
 
@@ -231,10 +230,14 @@ export default function CotizadorScreen() {
         await Sharing.shareAsync(filePath, {
           mimeType: 'text/html',
           dialogTitle: 'Compartir Cotización',
+          UTI: 'public.html',
         });
+      } else {
+        Alert.alert('Éxito', `Cotización guardada en: ${fileName}`);
       }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo exportar la cotización');
+    } catch (error: any) {
+      console.error('Error exportando:', error);
+      Alert.alert('Error', error?.message || 'No se pudo exportar la cotización');
     }
   };
 
