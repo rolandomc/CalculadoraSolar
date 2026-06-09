@@ -1,11 +1,15 @@
 {
   "paneles": [
-    { "id": "p1", "nombre": "Módulo 550W", "pMax": 550, "voc": 49.8, "isc": 14.0 },
-    { "id": "p2", "nombre": "Módulo 600W", "pMax": 600, "voc": 51.5, "isc": 14.5 }
+    { "id": "p1", "nombre": "Canadian Solar 550W (Bifacial)", "pMax": 550, "voc": 49.6, "isc": 14.00 },
+    { "id": "p2", "nombre": "Jinko Solar Tiger Pro 460W", "pMax": 460, "voc": 41.5, "isc": 11.69 },
+    { "id": "p3", "nombre": "Trina Solar Vertex 600W", "pMax": 600, "voc": 41.7, "isc": 18.42 }
   ],
   "inversores": [
-    { "id": "i1", "nombre": "Growatt MIN 3000TL-XH", "pMaxCA": 3000, "iMaxCA": 13.6 },
-    { "id": "i2", "nombre": "Growatt MIN 5000TL-XH", "pMaxCA": 5000, "iMaxCA": 22.7 },
-    { "id": "i3", "nombre": "Growatt MIN 6000TL-XH", "pMaxCA": 6000, "iMaxCA": 27.2 }
+    { "id": "i1", "nombre": "Growatt MIN 3000TL-X", "potenciaCA": 3.0 },
+    { "id": "i2", "nombre": "Growatt MIN 5000TL-X", "potenciaCA": 5.0 },
+    { "id": "i3", "nombre": "Growatt MIN 6000TL-X", "potenciaCA": 6.0 },
+    { "id": "i4", "nombre": "Solis 8K", "potenciaCA": 8.0 },
+    { "id": "i5", "nombre": "Solis 10K", "potenciaCA": 10.0 },
+    { "id": "i6", "nombre": "Fronius Primo 15.0-1", "potenciaCA": 15.0 }
   ]
 }

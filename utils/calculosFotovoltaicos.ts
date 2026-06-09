@@ -1,55 +1,71 @@
-// utils/calculosFotovoltaicos.ts
+// importamos la base de datos para que el motor pueda buscar el inversor
+import baseDatos from '../data/catalogo.json';
 
-// 1. Exportamos la función de calibres para usarla donde sea
-export const determinarCalibre = (amperaje: number): string => {
-  if (amperaje <= 20) return "12 AWG";
-  if (amperaje <= 30) return "10 AWG";
-  if (amperaje <= 50) return "8 AWG";
-  if (amperaje <= 65) return "6 AWG";
-  if (amperaje <= 85) return "4 AWG";
-  return "Cálculo Especial (>4 AWG)";
-};
-
-// 2. Empaquetamos toda la matemática principal en una sola máquina
 export const calcularDimensionamiento = (
   consumoBimestral: number,
-  porcentaje: number,
-  hspFinal: number,
+  porcentajeAhorro: number,
+  hsp: number,
   isPremium: boolean,
-  panel: { pMax: number; isc: number },
-  inversor: { iMaxCA: number }
+  panel: any
 ) => {
-  const EFICIENCIA_SISTEMA = 0.80;
-  const DIAS_BIMESTRE = 60;
+  // 1. Calcular energía diaria requerida
+  const consumoDiario = consumoBimestral / 60; 
+  const energiaObjetivo = consumoDiario * (porcentajeAhorro / 100);
 
-  // Cálculos base (Gratis)
-  const consumoObjetivoKwh = consumoBimestral * (porcentaje / 100);
-  const energiaAGenerarWh = ((consumoObjetivoKwh / DIAS_BIMESTRE) * 1000) / EFICIENCIA_SISTEMA;
-  const potenciaSistemaW = energiaAGenerarWh / hspFinal;
+  // 2. Calcular energía real que produce un panel (factor de eficiencia 0.8 por pérdidas del sistema)
+  const generacionPorPanel = (panel.pMax * hsp * 0.8) / 1000;
 
-  const panelesCalculados = Math.ceil(potenciaSistemaW / panel.pMax);
-  const potenciaTotalKw = (panelesCalculados * panel.pMax) / 1000;
+  // 3. Cantidad de paneles (siempre redondeamos hacia arriba para no quedarnos cortos)
+  const panelesRequeridos = Math.ceil(energiaObjetivo / generacionPorPanel);
 
-  // Preparamos el paquete de resultados
-  let resultados = {
-    paneles: panelesCalculados,
-    potenciaKWp: potenciaTotalKw,
-    proteccionCC: null as number | null,
-    calibreCC: null as string | null,
-    proteccionCA: null as number | null,
-    calibreCA: null as string | null,
-  };
+  // 4. Potencia Total Instalada en DC (kWp)
+  const potenciaKWp = (panelesRequeridos * panel.pMax) / 1000;
 
-  // Cálculos NOM-001 (Premium)
-  if (isPremium) {
-    const ampCC = Math.ceil(panel.isc * 1.25 * 1.25);
-    resultados.proteccionCC = ampCC;
-    resultados.calibreCC = determinarCalibre(ampCC);
+  // 5. SELECCIÓN AUTOMÁTICA DEL INVERSOR (Regla de Sobredimensionamiento Máx 30%)
+  // Ordenamos los inversores de menor a mayor capacidad
+  const inversoresOrdenados = [...baseDatos.inversores].sort((a, b) => a.potenciaCA - b.potenciaCA);
+  
+  let inversorSugerido = inversoresOrdenados[inversoresOrdenados.length - 1]; // Por defecto el más grande
+  let ratioSobredimensionamiento = 0;
 
-    const ampCA = Math.ceil(inversor.iMaxCA * 1.25);
-    resultados.proteccionCA = ampCA;
-    resultados.calibreCA = determinarCalibre(ampCA);
+  for (const inversor of inversoresOrdenados) {
+    // Verificamos si la potencia DC instalada es menor o igual a la capacidad del inversor + 30%
+    const capacidadMaxDC = inversor.potenciaCA * 1.30;
+    
+    if (potenciaKWp <= capacidadMaxDC) {
+      inversorSugerido = inversor;
+      ratioSobredimensionamiento = (potenciaKWp / inversor.potenciaCA) * 100;
+      break;
+    }
   }
 
-  return resultados;
+  // 6. Protecciones normadas (NOM-001-SEDE)
+  let proteccionCC = null;
+  let calibreCC = null;
+  let proteccionCA = null;
+  let calibreCA = null;
+
+  if (isPremium) {
+    // Calculo de fusibles CC: Isc * 1.56 (Art. 690-8)
+    const corrienteFusible = panel.isc * 1.56;
+    proteccionCC = Math.ceil(corrienteFusible / 5) * 5; // Redondear a multiplos de 5 comerciales
+    calibreCC = proteccionCC <= 20 ? '12 AWG o 10 AWG Solar' : '10 AWG Solar';
+
+    // Calculo CA basado en el inversor sugerido (Asumiendo 220V Bifásico)
+    const corrienteCA = (inversorSugerido.potenciaCA * 1000) / 220;
+    const corrienteBreaker = corrienteCA * 1.25;
+    proteccionCA = Math.ceil(corrienteBreaker / 5) * 5;
+    calibreCA = proteccionCA <= 20 ? '12 AWG' : proteccionCA <= 30 ? '10 AWG' : '8 AWG';
+  }
+
+  return {
+    paneles: panelesRequeridos,
+    potenciaKWp,
+    inversorSugerido,
+    ratioSobredimensionamiento,
+    proteccionCC,
+    calibreCC,
+    proteccionCA,
+    calibreCA
+  };
 };
