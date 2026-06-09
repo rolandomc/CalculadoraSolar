@@ -7,7 +7,7 @@ export const PRECIOS_MERCADO = {
   precioInversor: 2.5, // MXN/W
 
   // Costo de Balance of System (cables, protecciones, etc)
-  precioSOP: 12, // MXN/W (sistema de protecciones y componentes)
+  precioSOP: 6, // MXN/W (sistema de protecciones y componentes)
 
   // Instalación por kW - Más realista
   costoInstalacion: 250, // MXN/kW
