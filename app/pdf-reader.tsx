@@ -80,17 +80,12 @@ export default function PdfReaderScreen() {
         throw new Error('No se detectó texto en el documento.');
       }
 
-      // Guardamos TODO el texto tal y como lo vio la IA
       const textoCompleto = datos.ParsedResults.map((p: any) => p.ParsedText).join('\n');
       setTextoCrudo(textoCompleto);
       
-      // =================================================================
-      // NUEVO: IMPRIMIR EN LA TERMINAL PARA COPIAR FÁCILMENTE
-      // =================================================================
       console.log("\n\n========== INICIO DEL TEXTO DEL RECIBO CFE ==========\n");
       console.log(textoCompleto);
       console.log("\n=========== FIN DEL TEXTO DEL RECIBO CFE ============\n\n");
-      // =================================================================
 
       analizarTextoCFE(textoCompleto);
 
@@ -106,14 +101,25 @@ export default function PdfReaderScreen() {
     const txt = textoRaw.toUpperCase();
     let consumo = '';
 
-    const lineaEnergiaMatch = txt.match(/ENERG[IÍ]A\s*\(KWH\)(.*)/);
-    if (lineaEnergiaMatch && lineaEnergiaMatch[1]) {
-      const numerosFila = lineaEnergiaMatch[1].match(/\d+/g);
-      if (numerosFila && numerosFila.length > 0) {
-        consumo = numerosFila[numerosFila.length - 1]; 
+    // INTENTO 1: Formato Vertical CFE (Como en tu PDF: "Total \n periodo \n 906")
+    const matchVertical = txt.match(/TOTAL\s+PERIODO\s+([\d,]+)/);
+    if (matchVertical && matchVertical[1]) {
+      // Reemplazamos la coma por si lee algo como "1,250" y lo dejamos como "1250"
+      consumo = matchVertical[1].replace(/,/g, '');
+    }
+
+    // INTENTO 2: Formato en fila Horizontal CFE
+    if (!consumo) {
+      const lineaEnergiaMatch = txt.match(/ENERG[IÍ]A\s*\(KWH\)(.*)/);
+      if (lineaEnergiaMatch && lineaEnergiaMatch[1]) {
+        const numerosFila = lineaEnergiaMatch[1].match(/\d+/g);
+        if (numerosFila && numerosFila.length > 0) {
+          consumo = numerosFila[numerosFila.length - 1]; 
+        }
       }
     }
 
+    // INTENTO 3: Buscar genérico "Consumo"
     if (!consumo) {
       const consumoMatch = txt.match(/CONSUMO.*?\n.*?(\d{2,5})/m);
       if (consumoMatch && consumoMatch[1]) {
@@ -121,13 +127,7 @@ export default function PdfReaderScreen() {
       }
     }
 
-    if (!consumo) {
-      const fallbackMatch = txt.match(/([\d,]+)\s*KWH/);
-      if (fallbackMatch && fallbackMatch[1]) {
-        consumo = fallbackMatch[1].replace(',', '');
-      }
-    }
-
+    // El periodo ya lo hace perfecto
     const periodoMatch = txt.match(/\d{2}\s+[A-Z]{3}\s+\d{2,4}\s*[-A]\s*\d{2}\s+[A-Z]{3}\s+\d{2,4}/);
 
     setConsumoExtraido(consumo !== '' ? consumo : 'No detectado');
