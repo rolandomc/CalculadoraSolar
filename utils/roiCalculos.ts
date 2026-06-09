@@ -1,10 +1,10 @@
 // Precios aproximados del mercado mexicano 2024 (en MXN)
 export const PRECIOS_MERCADO = {
   // Precio por Watt (panel solar) - Más realista
-  precioPanel: 28, // MXN/W (incluye panel + estructura)
+  precioPanel: 4.5, // MXN/W (incluye panel + estructura)
 
   // Precio por Watt (inversor) - Reducido
-  precioInversor: 10, // MXN/W
+  precioInversor: 2.5, // MXN/W
 
   // Costo de Balance of System (cables, protecciones, etc)
   precioSOP: 12, // MXN/W (sistema de protecciones y componentes)
