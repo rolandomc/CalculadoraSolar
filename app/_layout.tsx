@@ -3,6 +3,7 @@ import { Drawer } from 'expo-router/drawer';
 import { PremiumProvider } from '../context/PremiumContext';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 function DrawerNavigator() {
   const { isDark } = useTheme();
@@ -20,7 +21,19 @@ function DrawerNavigator() {
     >
       <Drawer.Screen 
         name="(tabs)" 
-        options={{ drawerLabel: 'Calculadora', title: 'Calculadora Solar' }} 
+        options={{ 
+          drawerLabel: 'Calculadora', 
+          title: 'Calculadora Solar',
+          drawerIcon: ({ color }) => <Ionicons name="calculator" size={22} color={color} />
+        }} 
+      />
+      <Drawer.Screen 
+        name="tools" 
+        options={{ 
+          drawerLabel: 'Herramientas', 
+          title: 'Herramientas',
+          drawerIcon: ({ color }) => <Ionicons name="hammer-outline" size={22} color={color} />
+        }} 
       />
       <Drawer.Screen 
         name="paywall" 
