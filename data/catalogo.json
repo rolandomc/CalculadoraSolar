@@ -1,0 +1,11 @@
+{
+  "paneles": [
+    { "id": "p1", "nombre": "Módulo 550W", "pMax": 550, "voc": 49.8, "isc": 14.0 },
+    { "id": "p2", "nombre": "Módulo 600W", "pMax": 600, "voc": 51.5, "isc": 14.5 }
+  ],
+  "inversores": [
+    { "id": "i1", "nombre": "Growatt MIN 3000TL-XH", "pMaxCA": 3000, "iMaxCA": 13.6 },
+    { "id": "i2", "nombre": "Growatt MIN 5000TL-XH", "pMaxCA": 5000, "iMaxCA": 22.7 },
+    { "id": "i3", "nombre": "Growatt MIN 6000TL-XH", "pMaxCA": 6000, "iMaxCA": 27.2 }
+  ]
+}
