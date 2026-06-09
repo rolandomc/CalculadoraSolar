@@ -27,13 +27,17 @@ function DrawerNavigator() {
           drawerIcon: ({ color }) => <Ionicons name="calculator" size={22} color={color} />
         }} 
       />
-      <Drawer.Screen 
-        name="tools" 
-        options={{ 
-          drawerLabel: 'Herramientas', 
+      <Drawer.Screen
+        name="tools"
+        options={{
+          drawerLabel: 'Herramientas',
           title: 'Herramientas',
           drawerIcon: ({ color }) => <Ionicons name="hammer-outline" size={22} color={color} />
-        }} 
+        }}
+      />
+      <Drawer.Screen
+        name="norms"
+        options={{ drawerItemStyle: { display: 'none' }, title: 'Normas Vigentes' }}
       />
       {/* Ocultamos estas pantallas del menú lateral, pero existen en la app */}
       <Drawer.Screen 

@@ -9,7 +9,9 @@ import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import baseDatos from '../../data/catalogo.json';
 import { calcularDimensionamiento } from '../../utils/calculosFotovoltaicos';
+import { calcularROI, AnalisisROI } from '../../utils/roiCalculos';
 import TarjetaResultados from '../../components/TarjetaResultados';
+import ROIAnalysis from '../../components/ROIAnalysis';
 
 export default function AppGratis() {
   const router = useRouter();
@@ -19,6 +21,7 @@ export default function AppGratis() {
 
   const [consumoTotal, setConsumoTotal] = useState('');
   const [porcentajeAhorro, setPorcentajeAhorro] = useState('100');
+  const [tarifaElectricia, setTarifaElectricia] = useState<number | null>(null);
 
   const [ubicacion, setUbicacion] = useState<{ lat: number; lon: number } | null>(null);
   const [hspNasa, setHspNasa] = useState<number | null>(null);
@@ -35,6 +38,8 @@ export default function AppGratis() {
 
   // ESTADOS DE RESULTADOS ACTUALIZADOS
   const [resultado, setResultado] = useState<any>(null);
+  const [roiAnalisis, setROIAnalisis] = useState<AnalisisROI | null>(null);
+  const [mostrarROI, setMostrarROI] = useState(false);
 
   const obtenerDatosNasa = async () => {
     setCargandoNasa(true);
@@ -76,6 +81,7 @@ export default function AppGratis() {
   };
 
   const analizarTextoCFE = (textoRaw: string) => {
+    // Extraer historial de consumo
     const matchHistorial = textoRaw.match(/kWh\s*\n((?:\d+\s*\n)+)/i);
     let consumo = ''; let tipo = '';
     if (matchHistorial && matchHistorial[1]) {
@@ -86,7 +92,42 @@ export default function AppGratis() {
         tipo = `Promedio 1 año`;
       }
     }
-    if(consumo) { setConsumoTotal(consumo); setTipoConsumoDetectado(tipo); }
+
+    // Extraer tarifa de electricidad
+    // Busca patrones como "TARIFA", "PRECIO UNITARIO", "$/kWh"
+    const matchesTarifa = textoRaw.match(/(?:tarifa|precio\s*(?:unitario|kwh)|costo|importe|subtotal)[\s\n]*[$]?\s*([\d.]+)/gi);
+    let tarifaExtraida = 0;
+
+    if (matchesTarifa && matchesTarifa.length > 0) {
+      // Buscar más específicamente en líneas con formato de precio
+      const lineas = textoRaw.split('\n');
+      const lineasConPrecio = lineas.filter(l => /\$\s*[\d.]+|[\d.]+\s*\$/.test(l) && l.length < 80);
+
+      if (lineasConPrecio.length > 0) {
+        // Tomar valores que parecen tarifas (números pequeños, entre 1 y 10)
+        for (const linea of lineasConPrecio) {
+          const numeros = linea.match(/[\d.]+/g);
+          if (numeros) {
+            for (const num of numeros) {
+              const valor = parseFloat(num);
+              if (valor > 1 && valor < 15) { // Rango típico de tarifas en MXN
+                tarifaExtraida = valor;
+                break;
+              }
+            }
+            if (tarifaExtraida > 0) break;
+          }
+        }
+      }
+    }
+
+    if (consumo) {
+      setConsumoTotal(consumo);
+      setTipoConsumoDetectado(tipo);
+    }
+    if (tarifaExtraida > 0) {
+      setTarifaElectricia(tarifaExtraida);
+    }
   };
 
   const calcularSistema = () => {
@@ -95,6 +136,12 @@ export default function AppGratis() {
     if (!isNaN(consumo) && !isNaN(porcentaje)) {
       const res = calcularDimensionamiento(consumo, porcentaje, isPremium && hspNasa ? hspNasa : 5.0, isPremium, panelSeleccionado);
       setResultado(res);
+
+      // Calcular ROI si es premium
+      if (isPremium) {
+        const roi = calcularROI(res.potenciaKWp, consumo, porcentaje, hspNasa || 5.0, tarifaElectricia || undefined);
+        setROIAnalisis(roi);
+      }
     } else { Alert.alert("Error", "Ingresa consumo válido."); }
   };
 
@@ -130,6 +177,9 @@ export default function AppGratis() {
           <Text style={{ fontSize: 14, color: theme.textSecondary, marginBottom: 8 }}>Consumo Base Bimestral (kWh):</Text>
           <TextInput style={{ borderWidth: 1, borderColor: tipoConsumoDetectado ? theme.primary : theme.border, borderRadius: 8, padding: 12, fontSize: 18, fontWeight: 'bold', backgroundColor: theme.inputBg, color: theme.text, marginBottom: 15 }} placeholder="Ej. 1200" placeholderTextColor={theme.textSecondary} keyboardType="numeric" value={consumoTotal} onChangeText={(text) => { setConsumoTotal(text); setTipoConsumoDetectado(''); }} />
 
+          <Text style={{ fontSize: 14, color: theme.textSecondary, marginBottom: 8 }}>Tarifa de Electricidad (MXN/kWh):</Text>
+          <TextInput style={{ borderWidth: 1, borderColor: tarifaElectricia ? theme.primary : theme.border, borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: theme.inputBg, color: theme.text, marginBottom: 15 }} placeholder="Ej. 4.5" placeholderTextColor={theme.textSecondary} keyboardType="decimal-pad" value={tarifaElectricia ? tarifaElectricia.toString() : ''} onChangeText={(text) => setTarifaElectricia(text ? parseFloat(text) : null)} />
+
           <Text style={{ fontSize: 14, color: theme.textSecondary, marginBottom: 8 }}>Porcentaje de ahorro a cubrir (%):</Text>
           <TextInput style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: theme.inputBg, color: theme.text, marginBottom: 15 }} placeholder="Ej. 100" placeholderTextColor={theme.textSecondary} keyboardType="numeric" value={porcentajeAhorro} onChangeText={setPorcentajeAhorro} />
 
@@ -139,7 +189,48 @@ export default function AppGratis() {
         </View>
 
         {resultado && (
-          <TarjetaResultados isPremium={isPremium} resultado={resultado} panelSeleccionado={panelSeleccionado} />
+          <View style={{ width: '100%', alignItems: 'center', minHeight: 600 }}>
+            {isPremium && roiAnalisis && (
+              <View style={{ width: '100%', maxWidth: 400, marginTop: 20, marginBottom: 16, backgroundColor: theme.card, borderRadius: 12, borderColor: theme.border, borderWidth: 1, overflow: 'hidden' }}>
+                <View style={{ flexDirection: 'row' }}>
+                  <TouchableOpacity
+                    onPress={() => setMostrarROI(false)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      backgroundColor: !mostrarROI ? theme.primary : 'transparent',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: !mostrarROI ? '#000' : theme.text }}>
+                      Diseño Técnico
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setMostrarROI(true)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      backgroundColor: mostrarROI ? theme.primary : 'transparent',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: mostrarROI ? '#000' : theme.text }}>
+                      💰 ROI
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <View style={{ width: '100%', maxWidth: 400, flex: 1, minHeight: 500 }}>
+              {!mostrarROI ? (
+                <TarjetaResultados isPremium={isPremium} resultado={resultado} panelSeleccionado={panelSeleccionado} />
+              ) : (
+                roiAnalisis && <ROIAnalysis roi={roiAnalisis} />
+              )}
+            </View>
+          </View>
         )}
       </ScrollView>
 

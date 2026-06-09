@@ -36,6 +36,18 @@ export default function ToolsScreen() {
         <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
       </TouchableOpacity>
 
+      {/* Tarjeta de Herramienta 3: Normas Vigentes */}
+      <TouchableOpacity
+        style={{ backgroundColor: theme.card, padding: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 15, borderColor: theme.border, borderWidth: 1 }}
+        onPress={() => router.push('/norms')}
+      >
+        <Ionicons name="document-text" size={30} color={theme.primary} style={{ marginRight: 15 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.text }}>Normas Vigentes</Text>
+          <Text style={{ fontSize: 14, color: theme.textSecondary, marginTop: 4 }}>Consultar normativas actuales</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+      </TouchableOpacity>
     </ScrollView>
   );
 }

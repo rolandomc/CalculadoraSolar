@@ -1,0 +1,177 @@
+{
+  "fabricantes": [
+    {
+      "id": "growatt",
+      "nombre": "Growatt",
+      "pais": "China",
+      "descripcion": "Fabricante especializado en inversores y paneles solares"
+    }
+  ],
+  "paneles": [
+    {
+      "id": "growatt_550w",
+      "fabricante": "growatt",
+      "nombre": "Growatt 550W",
+      "potencia": 550,
+      "eficiencia": 22.5,
+      "tecnologia": "Monocristalino",
+      "dimensiones": "2384 x 1096 x 46 mm",
+      "peso": 28.5,
+      "garantia": 25,
+      "precio": 3800,
+      "precioProveedor": 2800
+    },
+    {
+      "id": "growatt_600w",
+      "fabricante": "growatt",
+      "nombre": "Growatt 600W",
+      "potencia": 600,
+      "eficiencia": 23.2,
+      "tecnologia": "Monocristalino",
+      "dimensiones": "2384 x 1096 x 46 mm",
+      "peso": 31,
+      "garantia": 25,
+      "precio": 4200,
+      "precioProveedor": 3100
+    },
+    {
+      "id": "growatt_665w",
+      "fabricante": "growatt",
+      "nombre": "Growatt 665W",
+      "potencia": 665,
+      "eficiencia": 23.8,
+      "tecnologia": "Monocristalino Half-Cell",
+      "dimensiones": "2384 x 1303 x 46 mm",
+      "peso": 37,
+      "garantia": 25,
+      "precio": 4600,
+      "precioProveedor": 3400
+    }
+  ],
+  "inversores": [
+    {
+      "id": "growatt_3kw",
+      "fabricante": "growatt",
+      "nombre": "Growatt MAX 3000TL3-X",
+      "potenciaDC": 4000,
+      "potenciaAC": 3000,
+      "voltajeMPPT": "160-1000V",
+      "maxCorriente": 13,
+      "eficiencia": 97.5,
+      "topologia": "Transformerless",
+      "refrigeracion": "Active Cooling",
+      "garantia": 10,
+      "precio": 12000,
+      "precioProveedor": 7500,
+      "monofasico": true
+    },
+    {
+      "id": "growatt_5kw",
+      "fabricante": "growatt",
+      "nombre": "Growatt MAX 5000TL3-X",
+      "potenciaDC": 6500,
+      "potenciaAC": 5000,
+      "voltajeMPPT": "160-1000V",
+      "maxCorriente": 22,
+      "eficiencia": 97.8,
+      "topologia": "Transformerless",
+      "refrigeracion": "Active Cooling",
+      "garantia": 10,
+      "precio": 18000,
+      "precioProveedor": 11000,
+      "monofasico": true
+    },
+    {
+      "id": "growatt_8kw",
+      "fabricante": "growatt",
+      "nombre": "Growatt MAX 8000TL3-X",
+      "potenciaDC": 10400,
+      "potenciaAC": 8000,
+      "voltajeMPPT": "160-1000V",
+      "maxCorriente": 35,
+      "eficiencia": 97.9,
+      "topologia": "Transformerless",
+      "refrigeracion": "Active Cooling",
+      "garantia": 10,
+      "precio": 26000,
+      "precioProveedor": 15500,
+      "monofasico": true
+    },
+    {
+      "id": "growatt_10kw",
+      "fabricante": "growatt",
+      "nombre": "Growatt MAX 10000TL3-X",
+      "potenciaDC": 13000,
+      "potenciaAC": 10000,
+      "voltajeMPPT": "160-1000V",
+      "maxCorriente": 44,
+      "eficiencia": 98.0,
+      "topologia": "Transformerless",
+      "refrigeracion": "Active Cooling",
+      "garantia": 10,
+      "precio": 32000,
+      "precioProveedor": 19000,
+      "monofasico": true
+    },
+    {
+      "id": "growatt_3kw_trifasico",
+      "fabricante": "growatt",
+      "nombre": "Growatt MAX 3000TL3-S",
+      "potenciaDC": 4000,
+      "potenciaAC": 3000,
+      "voltajeMPPT": "160-1000V",
+      "maxCorriente": 13,
+      "eficiencia": 97.6,
+      "topologia": "Transformerless",
+      "refrigeracion": "Active Cooling",
+      "garantia": 10,
+      "precio": 14000,
+      "precioProveedor": 8500,
+      "monofasico": false
+    },
+    {
+      "id": "growatt_5kw_trifasico",
+      "fabricante": "growatt",
+      "nombre": "Growatt MAX 5000TL3-S",
+      "potenciaDC": 6500,
+      "potenciaAC": 5000,
+      "voltajeMPPT": "160-1000V",
+      "maxCorriente": 22,
+      "eficiencia": 97.9,
+      "topologia": "Transformerless",
+      "refrigeracion": "Active Cooling",
+      "garantia": 10,
+      "precio": 21000,
+      "precioProveedor": 13000,
+      "monofasico": false
+    }
+  ],
+  "baterias": [
+    {
+      "id": "growatt_bat_48100",
+      "fabricante": "growatt",
+      "nombre": "Growatt HYLURGY 48V 100Ah",
+      "voltaje": 48,
+      "capacidad": 100,
+      "energiaUsable": 4.8,
+      "quimica": "LiFePO4",
+      "ciclos": 6000,
+      "garantia": 10,
+      "precio": 45000,
+      "precioProveedor": 28000
+    },
+    {
+      "id": "growatt_bat_48200",
+      "fabricante": "growatt",
+      "nombre": "Growatt HYLURGY 48V 200Ah",
+      "voltaje": 48,
+      "capacidad": 200,
+      "energiaUsable": 9.6,
+      "quimica": "LiFePO4",
+      "ciclos": 6000,
+      "garantia": 10,
+      "precio": 85000,
+      "precioProveedor": 52000
+    }
+  ]
+}
