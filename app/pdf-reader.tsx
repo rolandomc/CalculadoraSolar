@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, TextInput, Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/Colors';
@@ -11,49 +11,134 @@ export default function PdfReaderScreen() {
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedData, setExtractedData] = useState<{ consumo: string; periodo: string } | null>(null);
+  
+  const [consumoExtraido, setConsumoExtraido] = useState<string>('');
+  const [periodoExtraido, setPeriodoExtraido] = useState<string>('');
+  const [mostrarResultados, setMostrarResultados] = useState(false);
 
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf', // Solo permitimos PDFs
+        type: 'application/pdf',
         copyToCacheDirectory: true,
       });
 
       if (result.canceled) return;
 
-      // Si seleccionó un archivo
       const file = result.assets[0];
+      
+      // Validación preventiva de peso (1 MB = 1048576 bytes)
+      if (file.size && file.size > 1048576) {
+        Alert.alert('Archivo muy pesado', 'El PDF supera el límite de 1MB de la versión gratuita. Intenta con un archivo más ligero.');
+        return;
+      }
+
       setFileName(file.name);
-      procesarPDF(file.uri);
+      procesarPDFConNube(file);
       
     } catch (error) {
-      alert('Error al seleccionar el archivo');
+      Alert.alert('Error', 'No se pudo seleccionar el archivo');
     }
   };
 
-  const procesarPDF = (uri: string) => {
+  const procesarPDFConNube = async (file: DocumentPicker.DocumentPickerAsset) => {
     setIsProcessing(true);
-    setExtractedData(null);
+    setMostrarResultados(false);
+    setConsumoExtraido('');
+    setPeriodoExtraido('');
 
-    // SIMULACIÓN DE EXTRACCIÓN
-    // En el futuro, aquí enviaremos el 'uri' a una API de escaneo
-    setTimeout(() => {
-      setIsProcessing(false);
-      setExtractedData({
-        consumo: '1250',
-        periodo: '12 Ago 2023 - 12 Oct 2023'
+    try {
+      const formData = new FormData();
+      formData.append('apikey', 'helloworld'); 
+      formData.append('language', 'spa');
+      formData.append('isOverlayRequired', 'false');
+      formData.append('filetype', 'PDF');
+      formData.append('OCREngine', '2'); 
+
+      formData.append('file', {
+        uri: file.uri,
+        name: file.name,
+        type: 'application/pdf',
+      } as any);
+
+      const respuesta = await fetch('https://api.ocr.space/parse/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'multipart/form-data' },
+        body: formData,
       });
-    }, 2500); // Finge que está pensando por 2.5 segundos
+
+      const datos = await respuesta.json();
+
+      // Manejo de errores detallado
+      if (datos.IsErroredOnProcessing) {
+        const errorMsg = datos.ErrorMessage[0];
+        if (errorMsg.includes('File size limit')) {
+           throw new Error('El PDF supera el límite de peso del servidor (1MB).');
+        } else if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+           throw new Error('El recibo de CFE está encriptado o protegido.');
+        } else {
+           throw new Error(errorMsg);
+        }
+      }
+
+      if (!datos.ParsedResults || datos.ParsedResults.length === 0) {
+        throw new Error('No se detectó texto en el documento.');
+      }
+
+      const textoCompleto = datos.ParsedResults.map((p: any) => p.ParsedText).join('\n');
+      analizarTextoCFE(textoCompleto);
+
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error de Escaneo', error.message || 'Hubo un problema comunicándose con el servidor.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // --- MOTOR DE ANÁLISIS CFE OPTIMIZADO ---
+  const analizarTextoCFE = (textoRaw: string) => {
+    const txt = textoRaw.toUpperCase();
+    let consumo = '';
+
+    // 1. Lógica CFE: Buscar la línea exacta que dice "ENERGIA (kWh)"
+    // Capturamos toda la fila de números que le sigue.
+    const lineaEnergiaMatch = txt.match(/ENERG[IÍ]A\s*\(KWH\)(.*)/);
+    
+    if (lineaEnergiaMatch && lineaEnergiaMatch[1]) {
+      // Extraemos solo los bloques numéricos de esa línea
+      const numerosFila = lineaEnergiaMatch[1].match(/\d+/g);
+      
+      if (numerosFila && numerosFila.length > 0) {
+        // En CFE, el último número de esa fila es el "Consumo" final.
+        // Ej: LecturaActual(1000) LecturaAnterior(800) Multiplicador(1) Consumo(200)
+        consumo = numerosFila[numerosFila.length - 1]; 
+      }
+    }
+
+    // 2. Fallback: Si no encontró la tabla, busca la palabra KWH junto a un número
+    if (!consumo) {
+      const fallbackMatch = txt.match(/([\d,]+)\s*KWH/);
+      if (fallbackMatch && fallbackMatch[1]) {
+        consumo = fallbackMatch[1].replace(',', '');
+      }
+    }
+
+    // El periodo ya funcionaba perfectamente
+    const periodoMatch = txt.match(/\d{2}\s+[A-Z]{3}\s+\d{2,4}\s*[-A]\s*\d{2}\s+[A-Z]{3}\s+\d{2,4}/);
+
+    setConsumoExtraido(consumo !== '' ? consumo : 'No detectado');
+    setPeriodoExtraido(periodoMatch ? periodoMatch[0] : 'No detectado');
+    setMostrarResultados(true);
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.background }} contentContainerStyle={{ padding: 20, alignItems: 'center' }}>
       
       <Ionicons name="cloud-upload-outline" size={60} color={theme.primary} style={{ marginTop: 20, marginBottom: 10 }} />
-      <Text style={{ fontSize: 22, fontWeight: 'bold', color: theme.text, marginBottom: 10 }}>Subir Recibo CFE</Text>
+      <Text style={{ fontSize: 22, fontWeight: 'bold', color: theme.text, marginBottom: 10 }}>Subir Recibo a la Nube</Text>
       <Text style={{ fontSize: 14, color: theme.textSecondary, textAlign: 'center', marginBottom: 30, paddingHorizontal: 20 }}>
-        Selecciona el recibo en formato PDF desde tu celular para extraer automáticamente el consumo del último bimestre.
+        Nuestra IA leerá el PDF del recibo para extraer el consumo automáticamente (Máx 1MB).
       </Text>
 
       <TouchableOpacity 
@@ -63,38 +148,44 @@ export default function PdfReaderScreen() {
       >
         <Ionicons name="document-attach" size={20} color="#000" style={{ marginRight: 10 }} />
         <Text style={{ color: '#000', fontSize: 16, fontWeight: 'bold' }}>
-          {isProcessing ? "Procesando..." : "Explorar Archivos"}
+          {isProcessing ? "Analizando en la Nube..." : "Seleccionar PDF"}
         </Text>
       </TouchableOpacity>
 
       {isProcessing && (
-        <View style={{ alignItems: 'center', marginTop: 20 }}>
+        <View style={{ alignItems: 'center', marginTop: 10 }}>
           <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={{ color: theme.textSecondary, marginTop: 15 }}>Analizando tabla de consumos...</Text>
+          <Text style={{ color: theme.textSecondary, marginTop: 15 }}>Extrayendo datos con OCR...</Text>
         </View>
       )}
 
-      {/* Resultados Simulados */}
-      {extractedData && !isProcessing && (
+      {mostrarResultados && !isProcessing && (
         <View style={{ width: '100%', backgroundColor: theme.card, padding: 20, borderRadius: 12, borderColor: theme.border, borderWidth: 1, marginTop: 10 }}>
           <Text style={{ color: theme.primary, fontSize: 16, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>
-            ¡Extracción Exitosa!
+            Resultados del Escaneo
           </Text>
           
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Archivo:</Text>
-            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '500' }}>{fileName}</Text>
-          </View>
+          <Text style={{ color: theme.textSecondary, fontSize: 14, marginBottom: 5 }}>Archivo escaneado:</Text>
+          <Text style={{ color: theme.text, fontSize: 14, fontWeight: '500', marginBottom: 15 }}>{fileName}</Text>
 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Periodo Facturado:</Text>
-            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '500' }}>{extractedData.periodo}</Text>
-          </View>
+          <Text style={{ color: theme.textSecondary, fontSize: 14, marginBottom: 5 }}>Periodo Detectado:</Text>
+          <TextInput 
+            style={{ backgroundColor: theme.inputBg, color: theme.text, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: theme.border }}
+            value={periodoExtraido}
+            onChangeText={setPeriodoExtraido}
+          />
 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 10, marginTop: 5 }}>
-            <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Consumo Total:</Text>
-            <Text style={{ color: theme.primary, fontSize: 18, fontWeight: 'bold' }}>{extractedData.consumo} kWh</Text>
-          </View>
+          <Text style={{ color: theme.textSecondary, fontSize: 14, marginBottom: 5 }}>Consumo Total Detectado (kWh):</Text>
+          <TextInput 
+            style={{ backgroundColor: theme.inputBg, color: theme.text, borderRadius: 8, padding: 12, fontSize: 18, fontWeight: 'bold', marginBottom: 15, borderWidth: 1, borderColor: theme.primary }}
+            value={consumoExtraido}
+            keyboardType="numeric"
+            onChangeText={setConsumoExtraido}
+          />
+          
+          <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center', fontStyle: 'italic' }}>
+            *Puedes corregir los datos manualmente si la IA omitió algún número.
+          </Text>
         </View>
       )}
 
