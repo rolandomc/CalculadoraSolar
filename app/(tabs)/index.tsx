@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import * as DocumentPicker from 'expo-document-picker';
 import { usePremium } from '../../context/PremiumContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Colors } from '../../constants/Colors';
 import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons';
 import baseDatos from '../../data/catalogo.json';
 import { calcularDimensionamiento } from '../../utils/calculosFotovoltaicos';
 import TarjetaResultados from '../../components/TarjetaResultados';
@@ -16,17 +18,27 @@ export default function AppGratis() {
   const { isDark } = useTheme();
   const theme = isDark ? Colors.dark : Colors.light;
 
+  // --- ESTADOS DE LA CALCULADORA BÁSICA ---
   const [consumoTotal, setConsumoTotal] = useState('');
   const [porcentajeAhorro, setPorcentajeAhorro] = useState('100');
 
+  // --- ESTADOS PREMIUM: NASA ---
   const [ubicacion, setUbicacion] = useState<{ lat: number; lon: number } | null>(null);
   const [hspNasa, setHspNasa] = useState<number | null>(null);
   const [anguloNasa, setAnguloNasa] = useState<number | null>(null);
   const [cargandoNasa, setCargandoNasa] = useState(false);
 
+  // --- ESTADOS PREMIUM: EQUIPOS ---
   const [panelSeleccionado, setPanelSeleccionado] = useState(baseDatos.paneles[0]);
   const [inversorSeleccionado, setInversorSeleccionado] = useState(baseDatos.inversores[2]);
 
+  // --- ESTADOS PREMIUM: LECTOR CFE (NUEVO) ---
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const [pdfFileName, setPdfFileName] = useState<string | null>(null);
+  const [historialDetalle, setHistorialDetalle] = useState<number[]>([]);
+  const [tipoConsumoDetectado, setTipoConsumoDetectado] = useState<string>('');
+
+  // --- ESTADOS DE RESULTADOS ---
   const [resultadoPaneles, setResultadoPaneles] = useState<number | null>(null);
   const [potenciaInstalada, setPotenciaInstalada] = useState<number | null>(null);
   const [proteccionCC, setProteccionCC] = useState<number | null>(null);
@@ -34,12 +46,15 @@ export default function AppGratis() {
   const [calibreCC, setCalibreCC] = useState<string | null>(null);
   const [calibreCA, setCalibreCA] = useState<string | null>(null);
 
+  // ==========================================
+  // MOTOR 1: NASA POWER API
+  // ==========================================
   const obtenerDatosNasa = async () => {
     setCargandoNasa(true);
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        alert('Se requiere permiso de ubicación.');
+        Alert.alert('Permiso denegado', 'Se requiere permiso de ubicación.');
         setCargandoNasa(false);
         return;
       }
@@ -50,23 +65,136 @@ export default function AppGratis() {
       setUbicacion({ lat, lon });
 
       const urlNasa = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=ALLSKY_SFC_SW_DWN&community=RE&longitude=${lon}&latitude=${lat}&format=JSON`;
-
       const respuesta = await fetch(urlNasa);
       const datosNasa = await respuesta.json();
-
       const hspAnual = datosNasa.properties.parameter.ALLSKY_SFC_SW_DWN.ANN;
 
       setHspNasa(hspAnual);
       setAnguloNasa(Math.round(lat));
       
-      alert("Datos obtenidos: HSP anual " + hspAnual);
+      Alert.alert("Éxito", "Datos climáticos obtenidos con éxito.");
     } catch (error) {
-      alert("Error conectando con NASA.");
+      Alert.alert("Error", "No se pudo conectar con la NASA.");
     } finally {
       setCargandoNasa(false);
     }
   };
 
+  // ==========================================
+  // MOTOR 2: LECTOR DE CFE PDF CON IA
+  // ==========================================
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+      const file = result.assets[0];
+      
+      if (file.size && file.size > 1048576) {
+        Alert.alert('Archivo muy pesado', 'El PDF supera el límite de 1MB.');
+        return;
+      }
+
+      setPdfFileName(file.name);
+      procesarPDFConNube(file);
+      
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo seleccionar el archivo');
+    }
+  };
+
+  const procesarPDFConNube = async (file: DocumentPicker.DocumentPickerAsset) => {
+    setIsProcessingPdf(true);
+    setHistorialDetalle([]);
+    setTipoConsumoDetectado('');
+
+    try {
+      const formData = new FormData();
+      formData.append('apikey', 'helloworld'); 
+      formData.append('language', 'spa');
+      formData.append('isOverlayRequired', 'false');
+      formData.append('filetype', 'PDF');
+      formData.append('OCREngine', '2'); 
+
+      formData.append('file', { uri: file.uri, name: file.name, type: 'application/pdf' } as any);
+
+      const respuesta = await fetch('https://api.ocr.space/parse/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'multipart/form-data' },
+        body: formData,
+      });
+
+      const datos = await respuesta.json();
+
+      if (datos.IsErroredOnProcessing) throw new Error(datos.ErrorMessage[0]);
+      if (!datos.ParsedResults || datos.ParsedResults.length === 0) throw new Error('No se detectó texto en el documento.');
+
+      const textoCompleto = datos.ParsedResults.map((p: any) => p.ParsedText).join('\n');
+      analizarTextoCFE(textoCompleto);
+
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error de Escaneo', error.message || 'Hubo un problema comunicándose con el servidor OCR.');
+    } finally {
+      setIsProcessingPdf(false);
+    }
+  };
+
+  const analizarTextoCFE = (textoRaw: string) => {
+    const txtMayus = textoRaw.toUpperCase();
+    let consumoExtraido = '';
+    let tipo = '';
+
+    const historialRegex = /kWh\s*\n((?:\d+\s*\n)+)/i; 
+    const matchHistorial = textoRaw.match(historialRegex);
+    
+    if (matchHistorial && matchHistorial[1]) {
+      const consumosHistorial = matchHistorial[1].trim().split(/\s+/).map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+      if (consumosHistorial.length > 0) {
+        const ultimos6 = consumosHistorial.slice(0, 6);
+        setHistorialDetalle(ultimos6); 
+        const sumaAnual = ultimos6.reduce((acc, val) => acc + val, 0);
+        const promedioBimestral = Math.round(sumaAnual / ultimos6.length);
+        
+        consumoExtraido = promedioBimestral.toString();
+        tipo = `Promedio de 1 año (${ultimos6.length} bimestres)`;
+      }
+    }
+
+    if (!consumoExtraido) {
+      const matchVertical = txtMayus.match(/TOTAL\s+PERIODO\s+([\d,]+)/);
+      if (matchVertical && matchVertical[1]) {
+        consumoExtraido = matchVertical[1].replace(/,/g, '');
+        tipo = 'Solo periodo actual';
+      }
+    }
+
+    if (!consumoExtraido) {
+      const lineaEnergiaMatch = txtMayus.match(/ENERG[IÍ]A\s*\(KWH\)(.*)/);
+      if (lineaEnergiaMatch && lineaEnergiaMatch[1]) {
+        const numerosFila = lineaEnergiaMatch[1].match(/\d+/g);
+        if (numerosFila && numerosFila.length > 0) {
+          consumoExtraido = numerosFila[numerosFila.length - 1]; 
+          tipo = 'Solo periodo actual';
+        }
+      }
+    }
+
+    if (consumoExtraido) {
+      setConsumoTotal(consumoExtraido); // AUTO-COMPLETAMOS LA CALCULADORA BÁSICA
+      setTipoConsumoDetectado(tipo);
+      Alert.alert("Extracción Exitosa", `Se auto-completó el consumo base con: ${consumoExtraido} kWh (${tipo})`);
+    } else {
+      Alert.alert("Advertencia", "La IA no logró detectar el consumo en este recibo.");
+    }
+  };
+
+  // ==========================================
+  // MOTOR 3: CÁLCULO FINAL
+  // ==========================================
   const calcularSistema = () => {
     const consumo = parseFloat(consumoTotal);
     const porcentaje = parseFloat(porcentajeAhorro);
@@ -74,14 +202,7 @@ export default function AppGratis() {
     if (!isNaN(consumo) && !isNaN(porcentaje)) {
       const hsp = isPremium && hspNasa ? hspNasa : 5.0;
       
-      const resultados = calcularDimensionamiento(
-        consumo,
-        porcentaje,
-        hsp,
-        isPremium,
-        panelSeleccionado,
-        inversorSeleccionado
-      );
+      const resultados = calcularDimensionamiento(consumo, porcentaje, hsp, isPremium, panelSeleccionado, inversorSeleccionado);
 
       setResultadoPaneles(resultados.paneles);
       setPotenciaInstalada(resultados.potenciaKWp);
@@ -89,9 +210,8 @@ export default function AppGratis() {
       setCalibreCC(resultados.calibreCC);
       setProteccionCA(resultados.proteccionCA);
       setCalibreCA(resultados.calibreCA);
-
     } else {
-      alert("Por favor, ingresa valores numéricos válidos.");
+      Alert.alert("Error", "Por favor, ingresa valores numéricos válidos en la sección de consumo.");
     }
   };
 
@@ -99,86 +219,124 @@ export default function AppGratis() {
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView contentContainerStyle={{ padding: 20, alignItems: 'center', paddingBottom: 60 }}>
         
+        {/* BANNER UPGRADE */}
         {!isPremium && (
           <TouchableOpacity style={{ backgroundColor: '#FCD34D', padding: 12, borderRadius: 8, marginBottom: 20, alignItems: 'center', width: '100%', maxWidth: 400 }} onPress={() => router.push('/paywall')}>
             <Text style={{ color: '#92400E', fontWeight: 'bold', fontSize: 14, textAlign: 'center' }}>⭐ Eres instalador? Desbloquea cálculo avanzado</Text>
           </TouchableOpacity>
         )}
 
-        {/* ZONA PREMIUM */}
+        {/* ======================================= */}
+        {/* ZONA PREMIUM (HERRAMIENTAS INTEGRADAS)  */}
+        {/* ======================================= */}
         {isPremium && (
-          <View style={{ width: '100%', maxWidth: 400, backgroundColor: theme.card, padding: 20, borderRadius: 12, marginBottom: 20, borderColor: theme.border, borderWidth: 1 }}>
-            <Text style={{ color: '#FCD34D', fontWeight: 'bold', fontSize: 18, marginBottom: 15, textAlign: 'center' }}>🛠️ Opciones de Instalador</Text>
+          <View style={{ width: '100%', maxWidth: 400, marginBottom: 20 }}>
+            <Text style={{ color: '#FCD34D', fontWeight: 'bold', fontSize: 20, marginBottom: 15, textAlign: 'center' }}>🛠️ Módulos Pro</Text>
             
-            <TouchableOpacity style={{ backgroundColor: '#2563EB', padding: 14, borderRadius: 8, alignItems: 'center' }} onPress={obtenerDatosNasa}>
-              {cargandoNasa ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>🛰️ Obtener Radiación (NASA)</Text>
+            {/* 1. MÓDULO NASA */}
+            <View style={{ backgroundColor: theme.card, padding: 15, borderRadius: 12, marginBottom: 15, borderColor: theme.border, borderWidth: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <Ionicons name="earth" size={24} color="#2563EB" style={{ marginRight: 10 }} />
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Geolocalización NASA</Text>
+              </View>
+              
+              {ubicacion && hspNasa ? (
+                <View style={{ backgroundColor: theme.inputBg, padding: 10, borderRadius: 8, marginBottom: 10 }}>
+                   <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Lat: {ubicacion.lat.toFixed(2)} | Lon: {ubicacion.lon.toFixed(2)}</Text>
+                   <Text style={{ color: theme.primary, fontWeight: 'bold', marginTop: 4 }}>HSP: {hspNasa} kWh/m²/día</Text>
+                   <Text style={{ color: theme.textSecondary, fontSize: 13, marginTop: 4 }}>Inclinación recomendada: {anguloNasa}°</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity style={{ backgroundColor: '#2563EB', padding: 12, borderRadius: 8, alignItems: 'center' }} onPress={obtenerDatosNasa}>
+                {cargandoNasa ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{hspNasa ? "Actualizar Ubicación" : "Obtener Radiación"}</Text>}
+              </TouchableOpacity>
+            </View>
+
+            {/* 2. MÓDULO LECTOR CFE */}
+            <View style={{ backgroundColor: theme.card, padding: 15, borderRadius: 12, marginBottom: 15, borderColor: theme.border, borderWidth: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <Ionicons name="document-text" size={24} color={theme.primary} style={{ marginRight: 10 }} />
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Auto-Lectura de CFE (IA)</Text>
+              </View>
+
+              {historialDetalle.length > 0 && (
+                <View style={{ backgroundColor: theme.inputBg, padding: 10, borderRadius: 8, marginBottom: 10 }}>
+                   <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 4 }}>Historial 1 Año Detectado:</Text>
+                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {historialDetalle.map((val, index) => (
+                      <Text key={index} style={{ color: theme.text, fontSize: 11, backgroundColor: theme.background, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: theme.border }}>{val}</Text>
+                    ))}
+                   </View>
+                </View>
               )}
-            </TouchableOpacity>
 
-            {ubicacion && hspNasa && anguloNasa !== null && (
-              <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 10, fontSize: 14 }}>
-                Lat: {ubicacion.lat.toFixed(2)} | Lon: {ubicacion.lon.toFixed(2)} {"\n"}
-                HSP Local: {hspNasa} kWh/m²/día {"\n"}
-                Inclinación Óptima: {anguloNasa}°
-              </Text>
-            )}
+              <TouchableOpacity style={{ backgroundColor: theme.primary, padding: 12, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }} onPress={pickDocument} disabled={isProcessingPdf}>
+                {isProcessingPdf ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload" size={18} color="#000" style={{ marginRight: 8 }} />
+                    <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 14 }}>{pdfFileName ? "Cambiar Recibo PDF" : "Subir Recibo PDF"}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
 
-            <View style={{ marginTop: 15, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 10 }}>
-              <Text style={{ color: theme.textSecondary, fontSize: 14, marginBottom: 5 }}>Selecciona el Módulo:</Text>
+            {/* 3. MÓDULO EQUIPOS */}
+            <View style={{ backgroundColor: theme.card, padding: 15, borderRadius: 12, borderColor: theme.border, borderWidth: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <Ionicons name="hardware-chip" size={24} color="#F59E0B" style={{ marginRight: 10 }} />
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Selección de Equipos</Text>
+              </View>
+
+              <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 4 }}>Módulo Fotovoltaico:</Text>
               <View style={{ backgroundColor: theme.inputBg, borderRadius: 8, borderWidth: 1, borderColor: theme.border, marginBottom: 10 }}>
                 <Picker
                   selectedValue={panelSeleccionado.id}
-                  onValueChange={(itemValue) => {
-                    const panel = baseDatos.paneles.find(p => p.id === itemValue);
-                    if(panel) setPanelSeleccionado(panel); 
-                  }}
+                  onValueChange={(itemValue) => { const panel = baseDatos.paneles.find(p => p.id === itemValue); if(panel) setPanelSeleccionado(panel); }}
                   style={{ width: '100%', ...(Platform.OS === 'android' && { height: 50 }), color: theme.text }}
-                  itemStyle={{ height: 120, fontSize: 16, color: theme.text }}
                   dropdownIconColor={theme.text}
                 >
-                  {baseDatos.paneles.map(panel => (
-                    <Picker.Item key={panel.id} label={panel.nombre} value={panel.id} />
-                  ))}
+                  {baseDatos.paneles.map(panel => <Picker.Item key={panel.id} label={panel.nombre} value={panel.id} />)}
                 </Picker>
               </View>
 
-              <Text style={{ color: theme.textSecondary, fontSize: 14, marginBottom: 5 }}>Selecciona el Inversor:</Text>
-              <View style={{ backgroundColor: theme.inputBg, borderRadius: 8, borderWidth: 1, borderColor: theme.border, marginBottom: 10 }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 4 }}>Inversor Central:</Text>
+              <View style={{ backgroundColor: theme.inputBg, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
                 <Picker
                   selectedValue={inversorSeleccionado.id}
-                  onValueChange={(itemValue) => {
-                    const inversor = baseDatos.inversores.find(i => i.id === itemValue);
-                    if(inversor) setInversorSeleccionado(inversor); 
-                  }}
+                  onValueChange={(itemValue) => { const inversor = baseDatos.inversores.find(i => i.id === itemValue); if(inversor) setInversorSeleccionado(inversor); }}
                   style={{ width: '100%', ...(Platform.OS === 'android' && { height: 50 }), color: theme.text }}
-                  itemStyle={{ height: 120, fontSize: 16, color: theme.text }}
                   dropdownIconColor={theme.text}
                 >
-                  {baseDatos.inversores.map(inversor => (
-                    <Picker.Item key={inversor.id} label={inversor.nombre} value={inversor.id} />
-                  ))}
+                  {baseDatos.inversores.map(inversor => <Picker.Item key={inversor.id} label={inversor.nombre} value={inversor.id} />)}
                 </Picker>
               </View>
             </View>
           </View>
         )}
         
-        {/* ZONA BÁSICA */}
+        {/* ======================================= */}
+        {/* ZONA BÁSICA (CÁLCULO FINAL)             */}
+        {/* ======================================= */}
         <View style={{ width: '100%', maxWidth: 400, backgroundColor: theme.card, padding: 20, borderRadius: 12, borderColor: theme.border, borderWidth: 1 }}>
-          <Text style={{ fontSize: 14, color: theme.textSecondary, marginBottom: 8 }}>Consumo en kWh (Ej. último bimestre):</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ fontSize: 14, color: theme.textSecondary }}>Consumo Base (kWh):</Text>
+            {tipoConsumoDetectado ? <Text style={{ fontSize: 10, color: theme.primary, fontWeight: 'bold' }}>{tipoConsumoDetectado}</Text> : null}
+          </View>
+          
+          {/* Este Input se llena automático si usas el lector PDF */}
           <TextInput 
-            style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: theme.inputBg, color: theme.text, marginBottom: 15 }} 
+            style={{ borderWidth: 1, borderColor: tipoConsumoDetectado ? theme.primary : theme.border, borderRadius: 8, padding: 12, fontSize: 18, fontWeight: 'bold', backgroundColor: theme.inputBg, color: theme.text, marginBottom: 15 }} 
             placeholder="Ej. 1200" 
             placeholderTextColor={theme.textSecondary}
             keyboardType="numeric" 
             value={consumoTotal} 
-            onChangeText={setConsumoTotal} 
+            onChangeText={(text) => { setConsumoTotal(text); setTipoConsumoDetectado(''); }} 
           />
 
-          <Text style={{ fontSize: 14, color: theme.textSecondary, marginBottom: 8 }}>Porcentaje de ahorro (%):</Text>
+          <Text style={{ fontSize: 14, color: theme.textSecondary, marginBottom: 8 }}>Porcentaje de ahorro a cubrir (%):</Text>
           <TextInput 
             style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: theme.inputBg, color: theme.text, marginBottom: 15 }} 
             placeholder="Ej. 100" 
@@ -188,11 +346,14 @@ export default function AppGratis() {
             onChangeText={setPorcentajeAhorro} 
           />
 
-          <TouchableOpacity style={{ backgroundColor: theme.primary, padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 }} onPress={calcularSistema}>
-            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }}>Calcular Sistema</Text>
+          <TouchableOpacity style={{ backgroundColor: theme.primary, padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 5 }} onPress={calcularSistema}>
+            <Text style={{ color: '#000', fontSize: 18, fontWeight: 'bold' }}>Calcular Dimensionamiento</Text>
           </TouchableOpacity>
         </View>
 
+        {/* ======================================= */}
+        {/* TARJETA DE RESULTADOS                   */}
+        {/* ======================================= */}
         {resultadoPaneles !== null && potenciaInstalada !== null && (
           <TarjetaResultados 
             isPremium={isPremium}
