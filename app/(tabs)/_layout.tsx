@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function TabLayout() {
   return (
     <Tabs screenOptions={{
-      headerShown: false, // Ocultamos el header nativo para que tu diseño luzca más limpio
+      headerShown: false,
       tabBarActiveTintColor: '#10B981',
       tabBarStyle: { backgroundColor: '#121212', borderTopWidth: 0 }
     }}>
@@ -23,12 +23,32 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="history"
+        options={{
+          title: 'Historial',
+          tabBarIcon: ({color}) => <Ionicons name="time" size={24} color={color} />
+        }}
+      />
+      <Tabs.Screen
+        name="batteries"
+        options={{
+          title: 'Baterías',
+          tabBarIcon: ({color}) => <Ionicons name="battery-charging" size={24} color={color} />
+        }}
+      />
+          <Tabs.Screen
         name="catalog"
         options={{
           title: 'Equipos',
           tabBarIcon: ({color}) => <Ionicons name="list" size={24} color={color} />
         }}
       />
+      <Tabs.Screen 
+        name="profile" 
+        options={{ 
+          title: 'Perfil', 
+          tabBarIcon: ({color}) => <Ionicons name="business" size={24} color={color} /> 
+          }} />
     </Tabs>
   );
 }

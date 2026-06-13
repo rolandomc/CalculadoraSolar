@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator,
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as DocumentPicker from 'expo-document-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePremium } from '../../context/PremiumContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Colors } from '../../constants/Colors';
@@ -36,7 +37,6 @@ export default function AppGratis() {
   const [panelSeleccionado, setPanelSeleccionado] = useState(baseDatos.paneles[0]);
   const [modalPanelesVisible, setModalPanelesVisible] = useState(false);
 
-  // ESTADOS DE RESULTADOS ACTUALIZADOS
   const [resultado, setResultado] = useState<any>(null);
   const [roiAnalisis, setROIAnalisis] = useState<AnalisisROI | null>(null);
   const [mostrarROI, setMostrarROI] = useState(false);
@@ -71,49 +71,60 @@ export default function AppGratis() {
     setIsProcessingPdf(true); setHistorialDetalle([]); setTipoConsumoDetectado('');
     try {
       const formData = new FormData();
-      formData.append('apikey', 'helloworld'); formData.append('language', 'spa'); formData.append('isOverlayRequired', 'false'); formData.append('filetype', 'PDF'); formData.append('OCREngine', '2'); 
+      formData.append('apikey', 'helloworld'); 
+      formData.append('language', 'spa'); 
+      formData.append('isOverlayRequired', 'false'); 
+      formData.append('filetype', 'PDF'); 
+      formData.append('OCREngine', '2'); 
       formData.append('file', { uri: file.uri, name: file.name, type: 'application/pdf' } as any);
+      
       const respuesta = await fetch('https://api.ocr.space/parse/image', { method: 'POST', headers: { 'Content-Type': 'multipart/form-data' }, body: formData });
       const datos = await respuesta.json();
+      
       if (datos.IsErroredOnProcessing) throw new Error(datos.ErrorMessage[0]);
-      analizarTextoCFE(datos.ParsedResults.map((p: any) => p.ParsedText).join('\n'));
-    } catch (e: any) { Alert.alert('Error', e.message); } finally { setIsProcessingPdf(false); }
+      
+      await analizarTextoCFE(datos.ParsedResults.map((p: any) => p.ParsedText).join('\n'));
+    } catch (e: any) { 
+      Alert.alert('Error', e.message); 
+    } finally { 
+      setIsProcessingPdf(false); 
+    }
   };
 
-  const analizarTextoCFE = (textoRaw: string) => {
-    // Extraer historial de consumo
+  const analizarTextoCFE = async (textoRaw: string) => {
     const matchHistorial = textoRaw.match(/kWh\s*\n((?:\d+\s*\n)+)/i);
     let consumo = ''; let tipo = '';
+    let consumoDiarioParaBaterias = '5'; // Valor por defecto
+
     if (matchHistorial && matchHistorial[1]) {
       const consumos = matchHistorial[1].trim().split(/\s+/).map(n => parseInt(n, 10)).filter(n => !isNaN(n));
       if (consumos.length > 0) {
-        const ultimos6 = consumos.slice(0, 6); setHistorialDetalle(ultimos6);
+        const ultimos6 = consumos.slice(0, 6); 
+        setHistorialDetalle(ultimos6);
+        
+        // Consumo bimestral promedio
         consumo = Math.round(ultimos6.reduce((a, b) => a + b, 0) / ultimos6.length).toString();
         tipo = `Promedio 1 año`;
+
+        // Cálculo exacto de consumo diario para la calculadora de baterías (Suma anual / 365)
+        const sumaAnual = ultimos6.reduce((a, b) => a + b, 0);
+        consumoDiarioParaBaterias = (sumaAnual / 365).toFixed(2);
       }
     }
 
-    // Extraer tarifa de electricidad
-    // Busca patrones como "TARIFA", "PRECIO UNITARIO", "$/kWh"
     const matchesTarifa = textoRaw.match(/(?:tarifa|precio\s*(?:unitario|kwh)|costo|importe|subtotal)[\s\n]*[$]?\s*([\d.]+)/gi);
     let tarifaExtraida = 0;
 
     if (matchesTarifa && matchesTarifa.length > 0) {
-      // Buscar más específicamente en líneas con formato de precio
       const lineas = textoRaw.split('\n');
       const lineasConPrecio = lineas.filter(l => /\$\s*[\d.]+|[\d.]+\s*\$/.test(l) && l.length < 80);
-
       if (lineasConPrecio.length > 0) {
-        // Tomar valores que parecen tarifas (números pequeños, entre 1 y 10)
         for (const linea of lineasConPrecio) {
           const numeros = linea.match(/[\d.]+/g);
           if (numeros) {
             for (const num of numeros) {
               const valor = parseFloat(num);
-              if (valor > 1 && valor < 15) { // Rango típico de tarifas en MXN
-                tarifaExtraida = valor;
-                break;
-              }
+              if (valor > 1 && valor < 15) { tarifaExtraida = valor; break; }
             }
             if (tarifaExtraida > 0) break;
           }
@@ -121,12 +132,45 @@ export default function AppGratis() {
       }
     }
 
-    if (consumo) {
-      setConsumoTotal(consumo);
-      setTipoConsumoDetectado(tipo);
+    let nombre = '';
+    let domicilio = '';
+    let medidor = '';
+
+    const lineas = textoRaw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const matchMedidor = textoRaw.match(/MEDIDOR[\s:.]*([A-Z0-9]+)/i);
+    if (matchMedidor) medidor = matchMedidor[1].trim();
+
+    const indexTotalPag = lineas.findIndex(l => l.toUpperCase().includes('TOTAL A PAGAR'));
+
+    if (indexTotalPag !== -1 && indexTotalPag > 0) {
+      nombre = lineas[indexTotalPag - 1];
+      let lineasDomicilio = [];
+      for (let i = indexTotalPag + 1; i < lineas.length; i++) {
+        const linea = lineas[i];
+        if (linea.toUpperCase().includes('NO. DE SERVICIO') || linea.toUpperCase().includes('RMU')) break;
+        if (!linea.startsWith('$') && !linea.startsWith('(') && !linea.match(/^[\d,.]+$/)) lineasDomicilio.push(linea);
+      }
+      domicilio = lineasDomicilio.join(', ');
+    } else {
+      const lineasLimpias = lineas.filter(l => !l.toUpperCase().includes('COMISION FEDERAL') && !l.toUpperCase().includes('SUMINISTRADOR'));
+      if (lineasLimpias.length >= 2) { nombre = lineasLimpias[0]; domicilio = lineasLimpias[1]; }
     }
-    if (tarifaExtraida > 0) {
-      setTarifaElectricia(tarifaExtraida);
+
+    nombre = nombre.substring(0, 55);
+    domicilio = domicilio.substring(0, 100);
+
+    if (consumo) { setConsumoTotal(consumo); setTipoConsumoDetectado(tipo); }
+    if (tarifaExtraida > 0) setTarifaElectricia(tarifaExtraida);
+
+    try {
+      // Se guarda para el Cotizador
+      await AsyncStorage.setItem('@scanned_cfe', JSON.stringify({ nombre, domicilio, medidor, tarifa: tarifaExtraida > 0 ? tarifaExtraida.toString() : '3.8' }));
+      // Se guarda específicamente el consumo diario para la sección de baterías
+      await AsyncStorage.setItem('@scanned_baterias', consumoDiarioParaBaterias);
+      
+      Alert.alert('¡Recibo Escaneado!', 'Datos extraídos. El consumo diario se ha auto-rellenado en la Calculadora de Baterías.');
+    } catch(e) {
+      console.log('Error', e);
     }
   };
 
@@ -136,8 +180,6 @@ export default function AppGratis() {
     if (!isNaN(consumo) && !isNaN(porcentaje)) {
       const res = calcularDimensionamiento(consumo, porcentaje, isPremium && hspNasa ? hspNasa : 5.0, isPremium, panelSeleccionado);
       setResultado(res);
-
-      // Calcular ROI si es premium
       if (isPremium) {
         const roi = calcularROI(res.potenciaKWp, consumo, porcentaje, hspNasa || 5.0, tarifaElectricia || undefined);
         setROIAnalisis(roi);
@@ -193,31 +235,11 @@ export default function AppGratis() {
             {isPremium && roiAnalisis && (
               <View style={{ width: '100%', maxWidth: 400, marginTop: 20, marginBottom: 16, backgroundColor: theme.card, borderRadius: 12, borderColor: theme.border, borderWidth: 1, overflow: 'hidden' }}>
                 <View style={{ flexDirection: 'row' }}>
-                  <TouchableOpacity
-                    onPress={() => setMostrarROI(false)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 12,
-                      backgroundColor: !mostrarROI ? theme.primary : 'transparent',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: !mostrarROI ? '#000' : theme.text }}>
-                      Diseño Técnico
-                    </Text>
+                  <TouchableOpacity onPress={() => setMostrarROI(false)} style={{ flex: 1, paddingVertical: 12, backgroundColor: !mostrarROI ? theme.primary : 'transparent', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: !mostrarROI ? '#000' : theme.text }}>Diseño Técnico</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setMostrarROI(true)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 12,
-                      backgroundColor: mostrarROI ? theme.primary : 'transparent',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: mostrarROI ? '#000' : theme.text }}>
-                      💰 ROI
-                    </Text>
+                  <TouchableOpacity onPress={() => setMostrarROI(true)} style={{ flex: 1, paddingVertical: 12, backgroundColor: mostrarROI ? theme.primary : 'transparent', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: mostrarROI ? '#000' : theme.text }}>💰 ROI</Text>
                   </TouchableOpacity>
                 </View>
               </View>
