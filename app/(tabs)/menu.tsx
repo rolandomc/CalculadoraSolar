@@ -55,7 +55,7 @@ export default function MenuScreen() {
             icon="battery-charging-outline" 
             title="Calculadora de Baterías" 
             subtitle="Dimensionamiento de almacenamiento"
-            onPress={() => router.push('/beterries')} // Cambia a '/batteries' si ajustaste el nombre
+            onPress={() => router.push('/batteries')} // Cambia a '/batteries' si ajustaste el nombre
           />
           
           <MenuItem 

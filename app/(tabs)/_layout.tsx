@@ -98,7 +98,7 @@ export default function TabLayout() {
 
       {/* FIX: Bloqueo del archivo baterries / beterries */}
       <Tabs.Screen
-        name="beterries" // Nota: Si tu archivo se llama "batteries", cambia este nombre a "batteries"
+        name="batteries" // Nota: Si tu archivo se llama "batteries", cambia este nombre a "batteries"
         options={{
           href: null,
           headerShown: true,
