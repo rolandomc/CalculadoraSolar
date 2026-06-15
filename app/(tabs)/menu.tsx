@@ -61,6 +61,14 @@ export default function MenuScreen() {
 
           <MenuItem 
             theme={theme}
+            icon="pulse-outline" 
+            title="Calculadora de Strings" 
+            subtitle="Evita sobrevoltaje en inversores"
+            onPress={() => router.push('/string-calculator')} 
+          />
+
+          <MenuItem 
+            theme={theme}
             icon="compass-outline" 
             title="Herramientas de Campo" 
             subtitle="Inclinómetro y Brújula"

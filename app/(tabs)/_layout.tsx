@@ -68,6 +68,7 @@ export default function TabLayout() {
       <Tabs.Screen name="profile" options={{ href: null, title: 'Perfil de Empresa' }} />
       <Tabs.Screen name="batteries" options={{ href: null, title: 'Cálculo de Baterías' }} />
       <Tabs.Screen name="settings" options={{ href: null, title: 'Configuración' }} />
+      <Tabs.Screen name="string-calculator" options={{ href: null, title: 'Cálculo de Strings' }} />
     </Tabs>
   );
 }
