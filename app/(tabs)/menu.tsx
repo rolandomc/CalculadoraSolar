@@ -28,7 +28,10 @@ export default function MenuScreen() {
   const theme = isDark ? Colors.dark : Colors.light;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: theme.background }]} 
+      contentContainerStyle={{ paddingBottom: 40 }}
+    >
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Más Opciones</Text>
         <Text style={{ color: theme.textSecondary, marginTop: 4 }}>
@@ -36,9 +39,8 @@ export default function MenuScreen() {
         </Text>
       </View>
 
-      {/* SECCIÓN HERRAMIENTAS */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>HERRAMIENTAS</Text>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>HERRAMIENTAS TÉCNICAS</Text>
         <View style={[styles.cardGroup, { borderColor: theme.border, backgroundColor: theme.card }]}>
           
           <MenuItem 
@@ -49,14 +51,30 @@ export default function MenuScreen() {
             onPress={() => router.push('/catalog')} 
           />
 
-          {/* Enlace añadido para tu calculadora de baterías */}
           <MenuItem 
             theme={theme}
             icon="battery-charging-outline" 
             title="Calculadora de Baterías" 
-            subtitle="Dimensionamiento de almacenamiento"
-            onPress={() => router.push('/batteries')} // Cambia a '/batteries' si ajustaste el nombre
+            subtitle="Dimensionamiento Off-Grid"
+            onPress={() => router.push('/batteries')} 
           />
+
+          <MenuItem 
+            theme={theme}
+            icon="compass-outline" 
+            title="Herramientas de Campo" 
+            subtitle="Inclinómetro y Brújula"
+            onPress={() => router.push('/tools')} 
+          />
+
+          
+          
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>GESTIÓN</Text>
+        <View style={[styles.cardGroup, { borderColor: theme.border, backgroundColor: theme.card }]}>
           
           <MenuItem 
             theme={theme}
@@ -69,9 +87,8 @@ export default function MenuScreen() {
         </View>
       </View>
 
-      {/* SECCIÓN EMPRESA Y AJUSTES */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>CUENTA Y PREFERENCIAS</Text>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>CUENTA Y PERFIL</Text>
         <View style={[styles.cardGroup, { borderColor: theme.border, backgroundColor: theme.card }]}>
           
           <MenuItem 
@@ -98,7 +115,7 @@ export default function MenuScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 },
   headerTitle: { fontSize: 28, fontWeight: 'bold' },
   section: { marginBottom: 24, paddingHorizontal: 16 },
   sectionTitle: { fontSize: 12, fontWeight: '700', marginBottom: 8, marginLeft: 12, letterSpacing: 1 },
