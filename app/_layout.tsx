@@ -1,13 +1,25 @@
 import React from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { TouchableOpacity, Platform } from 'react-native';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { PremiumProvider } from '../context/PremiumContext';
 import { Colors } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
-// Componente interno para acceder al tema después de que el ThemeProvider lo provee
 function StackNavigator() {
   const { isDark } = useTheme();
   const theme = isDark ? Colors.dark : Colors.light;
+  const router = useRouter();
+
+  // Flecha personalizada para limpiar el texto "(tabs)" en iOS
+  const CustomBackButton = () => (
+    <TouchableOpacity 
+      onPress={() => router.back()} 
+      style={{ marginLeft: Platform.OS === 'ios' ? 0 : 16, marginRight: 20, padding: 5 }}
+    >
+      <Ionicons name="arrow-back" size={26} color={theme.text} />
+    </TouchableOpacity>
+  );
 
   return (
     <Stack
@@ -16,16 +28,18 @@ function StackNavigator() {
         headerTintColor: theme.text,
         headerTitleStyle: { fontWeight: 'bold' },
         headerShadowVisible: false,
+        // Forzamos que se use nuestra flecha sin texto
+        headerLeft: ({ canGoBack }) => canGoBack ? <CustomBackButton /> : null,
       }}
     >
-      {/* 1. El grupo de pestañas inferior (Inicio, Cotizador, Menú) */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-      {/* 2. Las pantallas que antes estaban en el Drawer */}
+      {/* Pantallas del Stack Principal */}
       <Stack.Screen name="tools" options={{ title: 'Herramientas de Campo' }} />
       <Stack.Screen name="norms" options={{ title: 'Normativas (NOM)' }} />
+      <Stack.Screen name="string-calculator" options={{ title: 'Cálculo de Strings' }} />
       
-      {/* 3. Pantallas modales */}
+      {/* Modales */}
       <Stack.Screen name="paywall" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="pdf-reader" options={{ title: 'Lector PDF', presentation: 'modal' }} />
     </Stack>
