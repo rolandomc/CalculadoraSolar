@@ -11,7 +11,7 @@ function StackNavigator() {
   const theme = isDark ? Colors.dark : Colors.light;
   const router = useRouter();
 
-  // Flecha estandarizada para TODA la app (elimina el texto "(tabs)" en iOS)
+  // Flecha personalizada para limpiar el texto "(tabs)" en iOS
   const CustomBackButton = () => (
     <TouchableOpacity 
       onPress={() => router.back()} 
@@ -28,29 +28,20 @@ function StackNavigator() {
         headerTintColor: theme.text,
         headerTitleStyle: { fontWeight: 'bold' },
         headerShadowVisible: false,
-        // Forzamos el uso de nuestra flecha personalizada si hay a dónde volver
+        // Usamos nuestra flecha limpia en las herramientas
         headerLeft: ({ canGoBack }) => canGoBack ? <CustomBackButton /> : null,
-        // Obliga a que el gesto de deslizar para volver esté activo
         gestureEnabled: true,
-        // Orientación de la animación nativa
-        animation: 'slide_from_right', 
       }}
     >
-      {/* 1. Las Pestañas Inferiores (La barra inferior) */}
+      {/* La carpeta de pestañas inferior */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-      {/* 2. Todas las pantallas secundarias (Navegación Fluida con Swipe) */}
-      {/* Nota: Asegúrate de haber movido estos archivos a la carpeta 'app/' */}
-      <Stack.Screen name="catalog" options={{ title: 'Catálogo de Equipos' }} />
-      <Stack.Screen name="history" options={{ title: 'Mis Cotizaciones' }} />
-      <Stack.Screen name="profile" options={{ title: 'Perfil de Empresa' }} />
-      <Stack.Screen name="batteries" options={{ title: 'Cálculo de Baterías' }} />
-      <Stack.Screen name="settings" options={{ title: 'Configuración' }} />
+      {/* LAS PANTALLAS QUE SÍ ESTÁN EN TU CARPETA PRINCIPAL APP/ */}
       <Stack.Screen name="tools" options={{ title: 'Herramientas de Campo' }} />
       <Stack.Screen name="norms" options={{ title: 'Normativas (NOM)' }} />
       <Stack.Screen name="string-calculator" options={{ title: 'Cálculo de Strings' }} />
       
-      {/* 3. Modales que se abren de abajo hacia arriba */}
+      {/* Modales */}
       <Stack.Screen name="paywall" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="pdf-reader" options={{ title: 'Lector PDF', presentation: 'modal' }} />
     </Stack>

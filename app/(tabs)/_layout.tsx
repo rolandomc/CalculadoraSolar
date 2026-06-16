@@ -1,12 +1,24 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-// FIX: Aquí están las rutas con doble "../" para salir de app/(tabs)/
+import { TouchableOpacity, Platform } from 'react-native';
+// Usamos ../../ porque este archivo está dentro de (tabs)
 import { useTheme } from '../../context/ThemeContext';
 import { Colors } from '../../constants/Colors';
 
 export default function TabLayout() {
   const { isDark } = useTheme();
   const theme = isDark ? Colors.dark : Colors.light;
+  const router = useRouter();
+
+  // Botón que fuerza a la pestaña a volver exactamente a la pantalla "Menú"
+  const VolverAlMenu = () => (
+    <TouchableOpacity 
+      onPress={() => router.push('/menu')} 
+      style={{ marginLeft: Platform.OS === 'ios' ? 0 : 16, marginRight: 20, padding: 5 }}
+    >
+      <Ionicons name="arrow-back" size={26} color={theme.text} />
+    </TouchableOpacity>
+  );
 
   return (
     <Tabs
@@ -27,11 +39,12 @@ export default function TabLayout() {
           backgroundColor: theme.card,
           borderTopColor: theme.border,
           elevation: 0, 
-          height: 60,
-          paddingBottom: 5,
         },
       }}
     >
+      {/* ==========================================
+          LOS ÚNICOS 3 ICONOS VISIBLES EN LA BARRA
+          ========================================== */}
       <Tabs.Screen
         name="index"
         options={{
@@ -57,6 +70,30 @@ export default function TabLayout() {
           tabBarLabel: 'Menú',
           tabBarIcon: ({ color }) => <Ionicons name="grid-outline" size={24} color={color} />,
         }}
+      />
+
+      {/* ==========================================
+          PANTALLAS OCULTAS DEL MENÚ (Que siguen en tu carpeta tabs)
+          ========================================== */}
+      <Tabs.Screen 
+        name="catalog" 
+        options={{ href: null, title: 'Catálogo de Equipos', headerLeft: () => <VolverAlMenu /> }} 
+      />
+      <Tabs.Screen 
+        name="history" 
+        options={{ href: null, title: 'Mis Cotizaciones', headerLeft: () => <VolverAlMenu /> }} 
+      />
+      <Tabs.Screen 
+        name="profile" 
+        options={{ href: null, title: 'Perfil de Empresa', headerLeft: () => <VolverAlMenu /> }} 
+      />
+      <Tabs.Screen 
+        name="batteries" 
+        options={{ href: null, title: 'Cálculo de Baterías', headerLeft: () => <VolverAlMenu /> }} 
+      />
+      <Tabs.Screen 
+        name="settings" 
+        options={{ href: null, title: 'Configuración', headerLeft: () => <VolverAlMenu /> }} 
       />
     </Tabs>
   );
