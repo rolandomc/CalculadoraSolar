@@ -1,60 +1,68 @@
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
+import React from 'react';
+import { Stack, useRouter } from 'expo-router';
+import { TouchableOpacity, Platform } from 'react-native';
+import { ThemeProvider, useTheme } from '../context/ThemeContext';
+import { PremiumProvider } from '../context/PremiumContext';
 import { Colors } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function TabLayout() {
+function StackNavigator() {
   const { isDark } = useTheme();
   const theme = isDark ? Colors.dark : Colors.light;
+  const router = useRouter();
+
+  // Flecha estandarizada para TODA la app (elimina el texto "(tabs)" en iOS)
+  const CustomBackButton = () => (
+    <TouchableOpacity 
+      onPress={() => router.back()} 
+      style={{ marginLeft: Platform.OS === 'ios' ? 0 : 16, marginRight: 20, padding: 5 }}
+    >
+      <Ionicons name="arrow-back" size={26} color={theme.text} />
+    </TouchableOpacity>
+  );
 
   return (
-    <Tabs
+    <Stack
       screenOptions={{
-        headerShown: true, 
-        headerStyle: { 
-          backgroundColor: theme.card, 
-          elevation: 0, 
-          shadowOpacity: 0, 
-          borderBottomWidth: 1, 
-          borderBottomColor: theme.border 
-        },
+        headerStyle: { backgroundColor: theme.card },
         headerTintColor: theme.text,
         headerTitleStyle: { fontWeight: 'bold' },
-        tabBarActiveTintColor: theme.primary,
-        tabBarInactiveTintColor: theme.textSecondary,
-        tabBarStyle: {
-          backgroundColor: theme.card,
-          borderTopColor: theme.border,
-          elevation: 0, 
-        },
+        headerShadowVisible: false,
+        // Forzamos el uso de nuestra flecha personalizada si hay a dónde volver
+        headerLeft: ({ canGoBack }) => canGoBack ? <CustomBackButton /> : null,
+        // Obliga a que el gesto de deslizar para volver esté activo
+        gestureEnabled: true,
+        // Orientación de la animación nativa
+        animation: 'slide_from_right', 
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Calculadora Solar',
-          tabBarLabel: 'Inicio',
-          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} />,
-        }}
-      />
+      {/* 1. Las Pestañas Inferiores (La barra inferior) */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-      <Tabs.Screen
-        name="quoter"
-        options={{
-          title: 'Cotizador de Sistemas',
-          tabBarLabel: 'Cotizar',
-          tabBarIcon: ({ color }) => <Ionicons name="calculator-outline" size={24} color={color} />,
-        }}
-      />
+      {/* 2. Todas las pantallas secundarias (Navegación Fluida con Swipe) */}
+      {/* Nota: Asegúrate de haber movido estos archivos a la carpeta 'app/' */}
+      <Stack.Screen name="catalog" options={{ title: 'Catálogo de Equipos' }} />
+      <Stack.Screen name="history" options={{ title: 'Mis Cotizaciones' }} />
+      <Stack.Screen name="profile" options={{ title: 'Perfil de Empresa' }} />
+      <Stack.Screen name="batteries" options={{ title: 'Cálculo de Baterías' }} />
+      <Stack.Screen name="settings" options={{ title: 'Configuración' }} />
+      <Stack.Screen name="tools" options={{ title: 'Herramientas de Campo' }} />
+      <Stack.Screen name="norms" options={{ title: 'Normativas (NOM)' }} />
+      <Stack.Screen name="string-calculator" options={{ title: 'Cálculo de Strings' }} />
+      
+      {/* 3. Modales que se abren de abajo hacia arriba */}
+      <Stack.Screen name="paywall" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="pdf-reader" options={{ title: 'Lector PDF', presentation: 'modal' }} />
+    </Stack>
+  );
+}
 
-      <Tabs.Screen
-        name="menu"
-        options={{
-          title: 'Menú de Opciones',
-          tabBarLabel: 'Menú',
-          tabBarIcon: ({ color }) => <Ionicons name="grid-outline" size={24} color={color} />,
-        }}
-      />
-    </Tabs>
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <PremiumProvider>
+        <StackNavigator />
+      </PremiumProvider>
+    </ThemeProvider>
   );
 }
