@@ -10,14 +10,12 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={{ color: theme.text, fontSize: 20, fontWeight: 'bold', marginBottom: 20 }}>Configuración</Text>
-      
       <TouchableOpacity 
         style={[styles.settingItem, { backgroundColor: theme.card }]} 
         onPress={toggleTheme}
       >
-        <Text style={{ color: theme.text }}>Modo Oscuro</Text>
-        <Ionicons name={isDark ? "toggle" : "toggle-outline"} size={30} color={theme.primary} />
+        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '500' }}>Modo Oscuro</Text>
+        <Ionicons name={isDark ? "toggle" : "toggle-outline"} size={36} color={theme.primary} />
       </TouchableOpacity>
     </View>
   );
@@ -25,5 +23,5 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
-  settingItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderRadius: 12, alignItems: 'center' }
+  settingItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(150,150,150,0.2)' }
 });

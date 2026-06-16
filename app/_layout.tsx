@@ -11,7 +11,7 @@ function StackNavigator() {
   const theme = isDark ? Colors.dark : Colors.light;
   const router = useRouter();
 
-  // Flecha personalizada para limpiar el texto "(tabs)" en iOS
+  // Flecha estandarizada para TODA la app
   const CustomBackButton = () => (
     <TouchableOpacity 
       onPress={() => router.back()} 
@@ -28,15 +28,20 @@ function StackNavigator() {
         headerTintColor: theme.text,
         headerTitleStyle: { fontWeight: 'bold' },
         headerShadowVisible: false,
-        // Usamos nuestra flecha limpia en las herramientas
         headerLeft: ({ canGoBack }) => canGoBack ? <CustomBackButton /> : null,
         gestureEnabled: true,
+        animation: 'slide_from_right', 
       }}
     >
-      {/* La carpeta de pestañas inferior */}
+      {/* Pestañas Principales */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-      {/* LAS PANTALLAS QUE SÍ ESTÁN EN TU CARPETA PRINCIPAL APP/ */}
+      {/* Todas las opciones del Menú (ya están en la raíz) */}
+      <Stack.Screen name="catalog" options={{ title: 'Catálogo de Equipos' }} />
+      <Stack.Screen name="history" options={{ title: 'Mis Cotizaciones' }} />
+      <Stack.Screen name="profile" options={{ title: 'Perfil de Empresa' }} />
+      <Stack.Screen name="batteries" options={{ title: 'Cálculo de Baterías' }} />
+      <Stack.Screen name="settings" options={{ title: 'Configuración' }} />
       <Stack.Screen name="tools" options={{ title: 'Herramientas de Campo' }} />
       <Stack.Screen name="norms" options={{ title: 'Normativas (NOM)' }} />
       <Stack.Screen name="string-calculator" options={{ title: 'Cálculo de Strings' }} />
