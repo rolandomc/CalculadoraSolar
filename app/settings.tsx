@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import { Colors } from '../../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
+import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function SettingsScreen() {

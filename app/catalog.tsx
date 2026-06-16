@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, Modal, StyleSheet, Alert } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import { Colors } from '../../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
+import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import baseDatos from '../../data/catalogo.json';
+import baseDatos from '../data/catalogo.json';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 

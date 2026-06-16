@@ -3,9 +3,9 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Image } fro
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { usePremium } from '../../context/PremiumContext';
-import { useTheme } from '../../context/ThemeContext';
-import { Colors } from '../../constants/Colors';
+import { usePremium } from '../context/PremiumContext';
+import { useTheme } from '../context/ThemeContext';
+import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
 const InputField = ({ label, value, onChange, placeholder, theme, keyboardType = 'default' }: any) => (

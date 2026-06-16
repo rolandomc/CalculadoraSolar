@@ -2,9 +2,9 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePremium } from '../../context/PremiumContext';
-import { useTheme } from '../../context/ThemeContext';
-import { Colors } from '../../constants/Colors';
+import { usePremium } from '../context/PremiumContext';
+import { useTheme } from '../context/ThemeContext';
+import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
 const InputField = ({ label, value, onChange, placeholder, unit = '', theme, keyboardType = 'decimal-pad' }: any) => (
